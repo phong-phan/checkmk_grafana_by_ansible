@@ -1,0 +1,20 @@
+---
+- name: Copy script files to remote hosts
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  tasks:
+    - name: Ensure destination directory exists
+      file:
+        path: "{{ local_check_remote_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    - name: Upload check scripts
+      copy:
+        src: "localcheck/{{ item }}"
+        dest: "{{ local_check_remote_dir }}/{{ item }}"
+        mode: '0755'
+      loop: "{{ local_check_scripts }}"

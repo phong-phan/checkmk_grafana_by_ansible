@@ -1,0 +1,33 @@
+---
+- name: Get the Datasource UID of CheckMK Datasource
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
+  tasks:
+    - name: Retrieving Grafana datasources
+      ansible.builtin.uri:
+        url: "{{ grafana_datasources_url }}"
+        method: GET
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Bearer {{ grafana_api_key }}"
+        return_content: true
+      register: grafana_datasources
+    - name: Finding UID of the target datasource
+      ansible.builtin.set_fact:
+        datasource_uid: "{{ item.uid }}"
+      loop: "{{ grafana_datasources.json }}"
+      when: "'checkmk' in item.type| lower"
+    - name: Finding UIDs of the target datasources
+      ansible.builtin.set_fact:
+        datasource_uids: "{{ grafana_datasources.json | selectattr('type', 'search', 'checkmk') | map(attribute='uid') | list }}"
+    - name: Outputting UID of the datasource
+      ansible.builtin.debug:
+        msg: "Matched value: {{ datasource_uids | first }}"
+    - name: Append Grafana UID key to site vars file
+      ansible.builtin.lineinfile:
+        path: "{{ site_vars_file }}"
+        line: "datasource_uid: {{datasource_uid }}"
+        insertafter: EOF
+      delegate_to: localhost

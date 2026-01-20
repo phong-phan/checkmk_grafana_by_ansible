@@ -1,0 +1,11 @@
+---
+- name: SELinux in permissive mode
+  hosts: all
+  tasks:
+    - name: Updating SELinux config to permissive mode
+      ansible.builtin.lineinfile:
+        path: /etc/selinux/config
+        regexp: '^SELINUX='
+        line: 'SELINUX=permissive'
+        state: present
+- ansible.builtin.import_playbook: ../commons/reboot.yml

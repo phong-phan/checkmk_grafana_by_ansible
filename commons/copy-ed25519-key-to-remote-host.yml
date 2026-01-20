@@ -1,0 +1,43 @@
+- name: Create and copy ed25519 public key to remote host
+  hosts: all
+  vars:
+    ssh_local_user: root
+    ssh_remote_user: root
+    ssh_remote_hosts:
+      - 10.0.1.52
+      - 10.0.1.53
+    ssh_base_path: "{{ '/root/.ssh' if ssh_local_user == 'root' else '/home/' + ssh_local_user + '/.ssh' }}"
+  tasks:
+    - name: Ensuring .ssh directory exists
+      ansible.builtin.file:
+        path: "{{ ssh_base_path }}"
+        state: directory
+        mode: '0700'
+        owner: "{{ ssh_local_user }}"
+        group: "{{ ssh_local_user }}"
+    - name: Generating ed25519 key pair if not exists
+      ansible.builtin.openssh_keypair:
+        path: "{{ ssh_base_path }}/id_ed25519"
+        type: ed25519
+        owner: "{{ ssh_local_user }}"
+        group: "{{ ssh_local_user }}"
+      register: ed25519_key
+    - name: Adding remote host to known_hosts
+      ansible.builtin.known_hosts:
+        name: "{{ item }}"
+        key: "{{ lookup('pipe', 'ssh-keyscan -t rsa,ecdsa,ed25519 -H ' + item) }}"
+        path: "{{ ssh_base_path }}/known_hosts"
+        state: present
+      loop: "{{ ssh_remote_hosts }}"
+    - name: Fixing permissions for known_hosts
+      ansible.builtin.file:
+        path: "{{ ssh_base_path }}/known_hosts"
+        owner: "{{ ssh_local_user }}"
+        group: "{{ ssh_local_user }}"
+        mode: '0600'
+    - name: Copying public key to remote host
+      ansible.posix.authorized_key:
+        user: "{{ ssh_remote_user }}"
+        key: "{{ ed25519_key.public_key }}"
+      delegate_to: "{{ item }}"
+      loop: "{{ ssh_remote_hosts }}"

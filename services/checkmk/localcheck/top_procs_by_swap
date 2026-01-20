@@ -1,0 +1,25 @@
+#!/bin/bash
+
+_top="10"
+
+_tmp_file="/tmp/topprocsbyswap"
+_result_file="/tmp/res_topprocsbyswap"
+
+#get the raw results
+for file in /proc/*/status; do awk '/VmSwap|Name|NSpid/{printf $3" "$2}END{ print ""}' $file; done|\
+	sort -k 3 -n -r|head -n $_top|sed 's/kB//g;s/\//_/g;s/\://g'|awk '{print ($3/1000)" "$1"_"$2}' > $_tmp_file
+
+echo -ne "0 top_$_top"_by_swap\(MB\) "" > $_result_file
+while read _load _cmd
+do
+	#if the process has the same name -> put the pid in the end of process name
+   _cmd_withoutpid=$(echo $_cmd|grep -oP ".*\_"|sed 's/\_//g')
+   _count=$(grep -c $_cmd_withoutpid $_tmp_file)
+   if [[ "$_count" > "1" ]]; then
+           echo -ne "$_cmd=$_load|" >> $_result_file
+   else
+           echo -ne "$_cmd_withoutpid=$_load|" >> $_result_file
+   fi
+done < $_tmp_file
+
+cat $_result_file | rev | cut -c 2- | rev

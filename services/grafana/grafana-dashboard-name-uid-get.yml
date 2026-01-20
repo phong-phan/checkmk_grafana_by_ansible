@@ -1,0 +1,41 @@
+---
+- name: Getting Title and UID of Dashboards for exporting
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
+  tasks:
+    - name: Querying all dashboards from Grafana
+      ansible.builtin.uri:
+        url: "{{ grafana_url }}/api/search?type=dash-db"
+        method: GET
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Bearer {{ grafana_api_key }}"
+        return_content: true
+        status_code: 200
+      register: dashboard_response
+    - name: Printing dashboard
+      ansible.builtin.debug:
+        msg: "{{ dashboard_response }}"
+    - name: Initializing dashboard list
+      ansible.builtin.set_fact:
+        dashboards: []
+    - name: Appending dashboards with name and uid
+      ansible.builtin.set_fact:
+        dashboards: "{{ dashboards + [ { 'name': item.title, 'uid': item.uid } ] }}"
+      loop: "{{ dashboard_response.json }}"
+    - name: Adding header only if not already present
+      ansible.builtin.lineinfile:
+        path: site_vars.yml
+        line: "dashboards:"
+        create: true
+        state: present
+      delegate_to: localhost
+    - name: Appending dashboard entries to site_vars.yml
+      ansible.builtin.lineinfile:
+        path: "{{ site_vars_file }}"
+        line: "  - name: \"{{ item.name }}\"\n    uid: \"{{ item.uid }}\""
+        insertafter: EOF
+      loop: "{{ dashboards }}"
+      delegate_to: localhost

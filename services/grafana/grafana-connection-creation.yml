@@ -1,0 +1,54 @@
+---
+- name: Configuring Grafana CheckMK Datasource
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
+  tasks:
+    - name: Creating Checkmk datasource
+      ansible.builtin.uri:
+        url: "{{ grafana_datasources_url }}"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Bearer {{ grafana_api_key }}"
+        body_format: json
+        body:
+          name: "checkmk-cloud-datasource"
+          type: "checkmk-cloud-datasource"
+          access: "proxy"
+          url: ""
+          user: ""
+          database: ""
+          basicAuth: false
+          basicAuthUser: ""
+          withCredentials: false
+          isDefault: false
+          jsonData:
+            url: "{{ cmk_url }}"
+            edition: "RAW"
+            username: "{{ cmk_automation_user }}"
+          secureJsonFields: {}
+          secureJsonData:
+            secret: "{{ cmk_automation_user_secret }}"
+          version: 1
+          readOnly: false
+          accessControl:
+            alert.instances.external:read: true
+            alert.instances.external:write: true
+            alert.notifications.external:read: true
+            alert.notifications.external:write: true
+            alert.rules.external:read: true
+            alert.rules.external:write: true
+            datasources.id:read: true
+            datasources:delete: true
+            datasources:query: true
+            datasources:read: true
+            datasources:write: true
+          apiVersion: ""
+        status_code: [200, 202]
+      register: result
+
+    - name: Showing Grafana API response
+      ansible.builtin.debug:
+        var: result.json

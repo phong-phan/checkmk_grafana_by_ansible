@@ -1,0 +1,74 @@
+---
+- name: Installing Grafana on AlmaLinux
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
+  tasks:
+    - name: Removing existing Grafana packages
+      ansible.builtin.dnf:
+        name:
+          - grafana-pcp
+          - grafana
+          - grafana-selinux
+        state: absent
+    - name: Importing Grafa GPG key
+      ansible.builtin.rpm_key:
+        state: present
+        key: "{{ grafana_gpg_key }}"
+        validate_certs: false
+    - name: Installing required packages
+      ansible.builtin.dnf:
+        name:
+          - unzip
+        state: present
+        update_cache: true
+    - name: Installing Grafana
+      ansible.builtin.dnf:
+        name: "{{ grafana_server_package_url }}"
+        sslverify: false
+        validate_certs: false
+        state: present
+    - name: Starting and enabling Grafana service
+      ansible.builtin.systemd_service:
+        name: grafana-server.service
+        state: started
+        enabled: true
+    - name: Changing password for Grafana admin user
+      ansible.builtin.command:
+        cmd: grafana-cli admin reset-admin-password {{ grafana_secret }}
+      register: grafana_admin_pass_result
+      changed_when: "'admin password changed' in grafana_admin_pass_result.stdout"
+    - name: Installing plugins for Grafana
+      ansible.builtin.command:
+        cmd: grafana-cli plugins install {{ item }}
+      loop:
+        - checkmk-cloud-datasource
+        - yesoreyeram-infinity-datasource
+    - name: Allowing port for Grafana in firewalld
+      ansible.posix.firewalld:
+        port: 3000/tcp
+        state: enabled
+        immediate: true
+        permanent: true
+    - name: Restart Grafana Server
+      ansible.builtin.systemd_service:
+        name: grafana-server.service
+        state: restarted
+    - name: Create Grafana Viewer user
+      ansible.builtin.uri:
+        url: "{{ grafana_url }}/api/admin/users"
+        method: POST
+        url_username: "{{ grafana_user }}"
+        url_password: "{{ grafana_secret }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          name: "{{ grafana_viewer_user }}"
+          login: "{{ grafana_viewer_user }}"
+          password: "{{ grafana_viewer_secret }}"
+          role: "Viewer"
+        status_code: [200, 409]
+        return_content: true

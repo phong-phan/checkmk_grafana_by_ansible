@@ -1,0 +1,59 @@
+---
+- name: Install CheckMK Agent {{ cmk_agent_version }} on RHEL-based nodes
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  tasks:
+    - name: Set CheckMK install eligibility based on folder
+      ansible.builtin.set_fact:
+        is_linux_host: >-
+          {{
+            (servers | dict2items | selectattr('value.ip', 'equalto', ansible_host) | map(attribute='value.folder') | list)[0] == 'Linux'
+          }}
+
+    - name: Importing GPG key for CheckMK
+      ansible.builtin.rpm_key:
+        state: present
+        key: "{{ cmk_public_key }}"
+        validate_certs: false
+      when: is_linux_host
+
+    - name: Installing CheckMK agent for RHEL-based server
+      ansible.builtin.dnf:
+        name: "{{ cmk_rpm_agent_package_url }}"
+        state: present
+        validate_certs: false
+      when: is_linux_host
+
+    - name: Find matching FQDN from servers var using IP
+      ansible.builtin.set_fact:
+        fqdn_hostname: >-
+          {{
+            (servers | dict2items | selectattr('value.ip', 'equalto', ansible_host) | list)[0].key
+          }}
+      when: is_linux_host
+
+    - name: Register CheckMK agent using resolved FQDN
+      ansible.builtin.shell: >
+        cmk-agent-ctl register
+        --hostname {{ fqdn_hostname }}
+        --server {{ cmk_server }}
+        --site {{ cmk_site }}
+        --user registration
+        --password {{ registration_user_secret }}
+        --trust-cert
+      register: register_output
+      changed_when: register_output.rc != 0
+      ignore_errors: false
+      tags: register
+      when: is_linux_host
+
+    - name: Allowing firewalld port for CheckMK Agent
+      ansible.posix.firewalld:
+        port: 6556/tcp
+        state: enabled
+        immediate: true
+        permanent: true
+      ignore_errors: true
+      when: is_linux_host

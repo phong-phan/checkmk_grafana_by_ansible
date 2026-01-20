@@ -1,0 +1,7 @@
+---
+- ansible.builtin.import_playbook: 1-checkmk-folder-creation.yml
+- ansible.builtin.import_playbook: 2-checkmk-add-host-to-folder.yml
+- ansible.builtin.import_playbook: 3.1-checkmk-agent-install-linux.yml
+# - ansible.builtin.import_playbook: 3.2-checkmk-agent-install-windows.yml
+- ansible.builtin.import_playbook: 4-checkmk-service-discovery.yml
+- ansible.builtin.import_playbook: 5-checkmk-site-activation.yml

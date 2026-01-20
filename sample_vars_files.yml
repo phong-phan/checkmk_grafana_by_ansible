@@ -1,0 +1,25 @@
+# CHECKMK AND GRAFANA CREDENTIAL INFORMATION (This is critical, do not share or pushing this file with your code to public repository)
+
+# Name of the customer you want to deploy to
+customer_name: CORP1
+# Site of this Corp
+site: DEV
+# Login to Checkmk
+cmk_user: cmkadmin
+cmk_secret: cmkpassword
+# Automation user used by Grafana
+cmk_automation_user: grafana_svc
+cmk_automation_user_secret: grafanasvc_password
+# Operator user used by NOC team
+cmk_ops_user: oper
+cmk_ops_user_secret: operator_operator
+# Password for 'registration' user Agent registration user
+registration_user_secret: ilts#Registration
+
+# Login to Grafana
+grafana_user: admin
+grafana_secret: grafanapassword
+
+# Operator user used by NOC team
+grafana_viewer_user: oper
+grafana_viewer_secret: operator_operator

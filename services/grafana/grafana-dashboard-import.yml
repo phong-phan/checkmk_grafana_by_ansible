@@ -1,0 +1,27 @@
+---
+# Remember to update uid of the datasource in Grafana in JSON file:
+- name: Importing dashboards
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
+  tasks:
+    - name: Copying list of Grafana dashboards in JSON format to Grafana server
+      ansible.builtin.copy:
+        src: "dashboards/{{ item }}"
+        dest: "/tmp/{{ item }}"
+      loop: "{{ dashboard_files }}"
+    - name: Importing Grafana dashboards
+      community.grafana.grafana_dashboard:
+        grafana_url: "{{ grafana_url }}"
+        grafana_api_key: "{{ grafana_api_key }}"
+        state: present
+        commit_message: Updated by ansible
+        overwrite: true
+        path: "/tmp/{{ item }}"
+      loop: "{{ dashboard_files }}"
+    - name: Cleaning up dashboard files from /tmp
+      ansible.builtin.file:
+        path: "/tmp/{{ item }}"
+        state: absent
+      loop: "{{ dashboard_files }}"

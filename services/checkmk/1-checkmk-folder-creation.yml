@@ -1,0 +1,17 @@
+---
+- name: Create CheckMK folder
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  tasks:
+    - name: Creating a CheckMK folder
+      checkmk.general.folder:
+        server_url: "{{ cmk_url }}"
+        site: "{{ cmk_site }}"
+        automation_user: "{{ cmk_user }}"
+        automation_secret: "{{ cmk_secret }}"
+        path: "/{{ item }}"
+        name: "{{ item }}"
+        state: "present"
+      loop: "{{ folders }}"

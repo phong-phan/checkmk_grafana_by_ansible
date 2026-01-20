@@ -1,0 +1,26 @@
+---
+- name: Exporting all  dashboards from "{{ grafana_url }}"
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
+  tasks:
+    - name: Exporting dashboards
+      command: >
+        curl -s -k -u {{ grafana_user }}:{{ grafana_secret }}
+        {{ grafana_url }}/api/dashboards/uid/{{ item.uid }}
+      register: dash_raw
+      loop: "{{ dashboards }}"
+      delegate_to: localhost
+    - name: Saving dashboard
+      copy:
+        content: "{{ (item.stdout | from_json)['dashboard'] | to_nice_json }}"
+        dest: "./dashboards/{{ item.item.name }}.json"
+      loop: "{{ dash_raw.results }}"
+      when:
+        - item.stdout is defined
+        - item.stdout | length > 0
+        - (item.stdout | from_json) is mapping
+        - (item.stdout | from_json).dashboard is defined
+      delegate_to: localhost
+

@@ -1,0 +1,33 @@
+---
+- name: Install CheckMK Agent {{ cmk_agent_version }} on Windows nodes
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  tasks:
+    - name: Download CheckMK agent for Windows
+      ansible.windows.win_get_url:
+        url: "http://{{ cmk_server }}/{{ cmk_site }}/check_mk/agents/windows/check_mk_agent.msi"
+        dest: "C:\\Windows\\Temp\\check-mk-agent.msi"
+    - name: Install CheckMK Agent on Windows
+      ansible.windows.win_package:
+        path: "C:\\Windows\\Temp\\check-mk-agent.msi"
+        state: present
+        arguments: "/quiet /norestart"
+    # Custom hostname can be used instead of default hostname from Windows:
+    - name: Register CheckMK Agent with CheckMK Server
+      ansible.windows.win_shell: |
+        cd "C:\Program Files (x86)\checkmk\service"
+        ./cmk-agent-ctl.exe register --hostname {{ ansible_hostname }} --server {{ cmk_server }} --site {{ cmk_site }} --user registration --password  {{ registration_user_secret }}
+      register: register_output
+      changed_when: register_output.rc != 0
+      ignore_errors: false
+      tags: register
+    - name: Open Windows Firewall for CheckMK Agent
+      community.windows.win_firewall_rule:
+        name: "Allow CheckMK Agent"
+        enable: true
+        direction: in
+        action: allow
+        protocol: TCP
+        localport: 6556

@@ -1,0 +1,19 @@
+---
+- name: Adding host to folder
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  tasks:
+    - name: Adding host into corresponding folder
+      checkmk.general.host:
+        server_url: "{{ cmk_url }}"
+        site: "{{ cmk_site }}"
+        automation_user: "{{ cmk_user }}"
+        automation_secret: "{{ cmk_secret }}"
+        name: "{{ item.key }}"
+        attributes:
+          ipaddress: "{{ item.value.ip }}"
+        folder: "{{ item.value.folder }}"
+        state: "present"
+      loop: "{{ servers | dict2items }}"

@@ -1,0 +1,51 @@
+---
+- name: Updating Auditd Configuration from Variables
+  hosts: all
+  vars:
+    auditd_config_vars:
+      num_logs: 100
+      max_log_file_action: rotate
+      admin_space_left_action: rotate
+    # Modify auditd_mode as needed (0=disable, 1=enable, 2=immutable)
+    auditd_mode: 1
+  tasks:
+    - name: Ensuring Auditd service is running
+      ansible.builtin.service:
+        name: auditd.service
+        state: started
+    - name: Enabling making changes to audit config file without rebooting
+      ansible.builtin.replace:
+        path: /etc/audit/rules.d/99-finalize.rules
+        regexp: '^-e\s*[0-2]$'
+        replace: '-e {{ auditd_mode }}'
+        backup: false
+      register: finalize_rules_change
+    - name: Looping through configuration variables and update /etc/audit/auditd.conf
+      ansible.builtin.lineinfile:
+        path: /etc/audit/auditd.conf
+        regexp: '^{{ item.key }}\s*=\s*.*$'
+        line: '{{ item.key }} = {{ item.value }}'
+        create: false
+        backup: false
+      loop: "{{ auditd_config_vars | dict2items }}"
+      notify:
+        - restart_auditd_service
+    - name: Getting contents of auditd.conf
+      ansible.builtin.shell: |
+        cat /etc/audit/auditd.conf
+      register: auditd_config
+      # Use `changed_when: false` so this task doesn't report a change
+      changed_when: false
+    - name: Filtering and display relevant parameters
+      ansible.builtin.debug:
+        msg: "{{ auditd_config.stdout_lines | select('search', 'admin_space_left_action|max_log_file_action|max_log|num_logs') | list }}"
+    - name: Displaying rebooting request message
+      ansible.builtin.debug:
+        msg: PLEASE REBOOT THE SYSTEM TO APPLY ALL CHANGES PROPERLY.
+      when: finalize_rules_change.changed
+  handlers:
+    - name: restart_auditd_service
+      # Auditd can not be stopped/restarted using ansible module
+      ansible.builtin.shell: |
+        service auditd restart
+        service auditd status

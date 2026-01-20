@@ -1,0 +1,120 @@
+---
+- ansible.builtin.import_playbook: ../../commons/selinux-permissive.yml
+- name: Installing CheckMK on RHEL based server
+  hosts: all
+  vars_files:
+    - /home/ansible/vars/vars_file.yml
+    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  tasks:
+    - name: Importing CheckMK GPG key
+      ansible.builtin.rpm_key:
+        state: present
+        key: "{{ cmk_public_key }}"
+        validate_certs: false
+    - name: Allowing services on firewalld
+      ansible.posix.firewalld:
+        service: "{{ item }}"
+        state: enabled
+        permanent: true
+        immediate: true
+      loop:
+        - http
+        - https
+    - name: Allowing ports on firewalld
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        state: enabled
+        permanent: true
+        immediate: true
+      loop:
+        - 6556/tcp
+        - 6557/tcp
+        - 8000/tcp
+    - name: Installing required dependencies
+      ansible.builtin.dnf:
+        name:
+          - wget
+          - curl
+        state: present
+        update_cache: true
+    - name: Check if CheckMK is already installed
+      ansible.builtin.shell: "rpm -q check-mk-raw-{{ cmk_server_version }}"
+      register: checkmk_installed
+      ignore_errors: true
+    - name: Downloading CheckMK RPM package to /tmp
+      ansible.builtin.get_url:
+        url: "{{ cmk_server_package_url }}"
+        dest: "/tmp/{{ cmk_server_package_name }}"
+        validate_certs: false
+      when: checkmk_installed != 0
+    - name: Installing CheckMK RPM package
+      ansible.builtin.dnf:
+        name: "/tmp/{{ cmk_server_package_name }}"
+        state: present
+        update_cache: true
+      when: checkmk_installed != 0
+    - name: Creating a new CheckMK site
+      ansible.builtin.shell:
+        cmd: "omd create {{ cmk_site }}"
+      args:
+        creates: "/omd/sites/{{ cmk_site }}"
+    - name: Resetting cmkadmin password
+      ansible.builtin.shell:
+        cmd: "su - {{ cmk_site }} sh -c \"echo {{ cmk_secret }} | cmk-passwd -i cmkadmin\""
+      tags: change_passwd
+    - name: Checking if CheckMK site is running
+      ansible.builtin.shell:
+        cmd: "omd status {{ cmk_site }}"
+      register: omd_status
+      failed_when: false
+    - name: Starting CheckMK site if not running
+      ansible.builtin.shell:
+        cmd: "omd start {{ cmk_site }}"
+      when: "'running' not in omd_status.stdout"
+    - name: Creating Grafana automation user
+      checkmk.general.user:
+        server_url: "{{ cmk_url }}"
+        site: "{{ cmk_site }}"
+        automation_user: "{{ cmk_user }}"
+        automation_secret: "{{ cmk_secret }}"
+        name: "{{ cmk_automation_user }}"
+        fullname: "Grafana Svc Account"
+        auth_type: "automation"
+        password: "{{ cmk_automation_user_secret }}"
+        roles:
+          - "admin"
+        state: "present"
+      tags: svc_user
+    - name: "Create an automation user for Agent Registration"
+      checkmk.general.user:
+        server_url: "{{ cmk_url }}"
+        site: "{{ cmk_site }}"
+        automation_user: "{{ cmk_user }}"
+        automation_secret: "{{ cmk_secret }}"
+        name: "registration"
+        fullname: "Registration User"
+        auth_type: "automation"
+        password: "{{ registration_user_secret }}"
+        roles:
+          - "agent_registration"
+        state: "present"
+      tags: regis_user
+    - name: Creating Checkmk read-only user for Ops team
+      checkmk.general.user:
+        server_url: "{{ cmk_url }}"
+        site: "{{ cmk_site }}"
+        automation_user: "{{ cmk_user }}"
+        automation_secret: "{{ cmk_secret }}"
+        name: "{{ cmk_ops_user }}"
+        fullname: "{{ cmk_ops_user }}"
+        auth_type: "password"
+        password: "{{ cmk_ops_user_secret }}"
+        roles:
+          - "guest"
+        state: "present"
+      tags: oper_user
+    - name: Enabling httpd
+      ansible.builtin.systemd_service:
+        name: httpd.service
+        state: started
+        enabled: true

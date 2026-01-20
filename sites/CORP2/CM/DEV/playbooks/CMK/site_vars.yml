@@ -1,0 +1,62 @@
+---
+cmk_site: DEV
+cmk_url: http://172.31.0.13
+cmk_server: 172.31.0.13
+cmk_server_version: 2.4.0p19
+cmk_public_key: https://download.checkmk.com/checkmk/Check_MK-pubkey.gpg
+cmk_server_package_url: https://download.checkmk.com/checkmk/2.4.0p19/check-mk-raw-2.4.0p19-el9-38.x86_64.rpm
+cmk_rpm_agent_package_url: http://172.31.0.13/DEV/check_mk/agents/check-mk-agent-2.4.0p19-1.noarch.rpm       
+cmk_server_package_name: check-mk-raw-2.4.0p19-el9-38.x86_64.rpm
+cmk_rpm_agent_package_name: check-mk-agent-2.4.0p19-1.noarch.rpm
+cmk_agent_version: 2.4.0p19
+cmk_server_os: el9
+
+folders:
+  - 'iLO'
+  - 'Linux'
+  - 'Networking'
+  - 'Storage'
+  - 'VMWare'
+  - 'Windows'
+  - 'Connection-Monitoring'
+
+servers:
+  CORP2-ANS:
+    ip: 172.31.0.10
+    folder: Linux
+  CORP2-REPO:
+    ip: 172.31.0.11
+    folder: Linux
+  CORP2-PKI:
+    ip: 172.31.0.12
+    folder: Linux
+  CORP2-CMK:
+    ip: 172.31.0.13
+    folder: Linux
+  CORP2-NFS:
+    ip: 172.31.0.14
+    folder: Linux
+  CORP2-ANS-MGR-1:
+    ip: 172.31.0.15
+    folder: Linux
+  CORP2-ANS-MGR-2:
+    ip: 172.31.0.16
+    folder: Linux
+  CORP2-ANS-RUNNER-1:
+    ip: 172.31.0.17
+    folder: Linux
+  CORP2-ANS-RUNNER-2:
+    ip: 172.31.0.18
+    folder: Linux
+  CORP2-ANS-RUNNER-3:
+    ip: 172.31.0.19
+    folder: Linux
+  CORP2-ANS-RUNNER-4:
+    ip: 172.31.0.20
+    folder: Linux
+  CORP2-DC01:
+    ip: 172.31.0.21
+    folder: Windows
+  CORP2-DC02:
+    ip: 172.31.0.22
+    folder: Windows

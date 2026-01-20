@@ -1,0 +1,19 @@
+#!/bin/bash
+_top="10"
+_linestoget=$(($_top+3))
+
+_tmp_file="/tmp/topprocsbywrite"
+
+echo -ne "0 top_$_top"_write_procs\(MBps\) "" > $_tmp_file
+
+# using IO top command to get the IO statistics:
+# -k: using kilobytes instead on human friendly unit.
+# -n1: iteration 1 time and then quitting (default never quit)
+# -b: running in batch mode
+# -P: only show process instead of showing all threads.
+# gettings output and then remove the encoding character, get the wanted lines, removing headers.
+# convert from Kilobytes into Megabytes
+
+iotop -k  -n1 -b  -d1 -P  -qqq| sed "s/^b'//" | sed "s/'$//g"  | head -n $_top   | sort -rnk 6  | awk -F 'K/s|% ' '{print $NF,$1}'  | sed "s/'//g;s/\[\|\]//g;/top/d;s/\//_/g;s/\://g;s/\+//g;s/\--\| -\|-/_/g" | awk '{print $1"="sprintf("%.3f",$NF / 1024 )}'  >> $_tmp_file
+
+cat $_tmp_file |  tr "\n" "|" | sed 's/|$/\n/g' 

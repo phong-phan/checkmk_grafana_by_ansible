@@ -1,0 +1,12 @@
+---
+- name: Generate ED25519 SSH key
+  hosts: all
+  vars:
+    target_user: ansible
+  tasks:
+    - name: Generating ED25519 SSH key
+      ansible.builtin.shell: |
+        sudo -u {{ target_user }} ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+      args:
+        creates: ~/.ssh/id_ed25519
+      become_user: "{{ target_user }}"

@@ -1,0 +1,11 @@
+---
+- name: SELinux in enforcing mode
+  hosts: all
+  tasks:
+    - name: Updating SELinux config to enforcing mode
+      ansible.builtin.lineinfile:
+        path: /etc/selinux/config
+        regexp: '^SELINUX='
+        line: 'SELINUX=enforcing'
+        state: present
+- ansible.builtin.import_playbook: ../commons/reboot.yml

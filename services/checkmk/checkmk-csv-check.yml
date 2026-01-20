@@ -1,0 +1,20 @@
+---
+- name: Deploying custom .csv check for Grafana
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  tasks:
+    - name: Ensure destination directory exists on remote hosts
+      file:
+        path: "{{ file_check_remote_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+    - name: Upload file check scripts to target hosts
+      copy:
+        src: "filecheck/{{ item }}"
+        dest: "{{ file_check_remote_dir }}/{{ item }}"
+        mode: '0755'
+      loop: "{{ file_check_scripts }}"

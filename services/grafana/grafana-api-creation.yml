@@ -1,0 +1,54 @@
+---
+- name: Creating and Generating API Key for Service Account "{{ grafana_service_account_name }}"
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
+  tasks:
+    - name: Creating Grafana service account
+      ansible.builtin.uri:
+        url: "{{ grafana_url }}/api/serviceaccounts"
+        method: POST
+        url_username: "{{ grafana_user }}"
+        url_password: "{{ grafana_secret }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          name: "{{ grafana_service_account_name }}"
+          role: "{{ grafana_service_account_role }}"
+        status_code: [201, 409]  # 409 = already exists
+        return_content: true
+      register: sa_response
+    - name: Extracting service account ID
+      ansible.builtin.set_fact:
+        service_account_id: "{{ (sa_response.json.id if sa_response.json.id is defined else sa_response.json.message | regex_search('\\d+')) | int }}"
+    - name: Showing extracted service account ID
+      ansible.builtin.debug:
+        var: service_account_id
+    - name: Creating API key for the service account
+      ansible.builtin.uri:
+        url: "{{ grafana_url }}/api/serviceaccounts/{{ service_account_id }}/tokens"
+        method: POST
+        url_username: "{{ grafana_user }}"
+        url_password: "{{ grafana_secret }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          name: "{{ grafana_token_name }}"
+          role: "{{ grafana_api_key_role }}"
+        status_code: 200
+        return_content: true
+      register: api_key_response
+    - name: Appending Grafana API key to vault file
+      ansible.builtin.lineinfile:
+        path: "{{ vault_file }}"
+        line: "grafana_api_key: {{ api_key_response.json.key }}"
+        insertafter: EOF
+      delegate_to: localhost
+    - name: Showing API token
+      ansible.builtin.debug:
+        msg: "API token: {{ api_key_response.json.key }}"

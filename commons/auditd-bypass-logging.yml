@@ -1,0 +1,34 @@
+---
+- name: Add Auditd User Exclusions to 40-access.rules
+  hosts: all
+  vars:
+    bypass_users:
+      - "ILTSVN"
+      - "ansible"
+    rule_file: /etc/audit/rules.d/40-access.rules
+  tasks:
+    - name: Add user exclusion rule for each user in bypass_users list
+      ansible.builtin.lineinfile:
+        path: "{{ rule_file}}"
+        line: '-a never,exit -F auid={{ item }}'
+        # Ensures the line is inserted only once (idempotency)
+        regexp: '^-a never,exit -F auid={{ item }}$'
+        state: present
+        create: yes
+        backup: false
+      loop: "{{ bypass_users }}"
+      notify:
+        - reload_auditd_rules
+    - name: Cat and display the contents of the rules file
+      ansible.builtin.command:
+        cmd: cat "{{ rule_file}}"
+      register: rules_file_content
+      changed_when: false
+    - name: Print the rules file content
+      ansible.builtin.debug:
+        msg: |
+          {{ rules_file_content.stdout }}
+  handlers:
+    - name: reload_auditd_rules
+      ansible.builtin.shell: |
+        augenrules --load

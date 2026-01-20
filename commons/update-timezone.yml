@@ -1,0 +1,9 @@
+---
+- name: Update Timezone
+  hosts: all
+  vars:
+    timezone: Asia/Ho_Chi_Minh
+  tasks:
+    - name: Updating timezone
+      ansible.builtin.shell: |
+        timedatectl set-timezone {{ timezone }}

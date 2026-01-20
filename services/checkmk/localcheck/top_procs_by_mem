@@ -1,0 +1,24 @@
+#!/bin/bash
+
+_top="10"
+
+_tmp_file="/tmp/topprocsbymem"
+_result_file="/tmp/res_topprocsbymem"
+
+#get the raw results
+top -b -n 1 -o %MEM|head -n$(($_top + 8))|tail -n$(($_top + 1))|awk '{print $10" "$12"_"$1}'|sed '/top/d;s/\//_/g;s/\://g;s/\+//g' > $_tmp_file
+
+echo -ne "0 top_$_top"_by_mem "" > $_result_file
+while read _load _cmd
+do
+        #if the process has the same name -> put the pid in the end of process name
+        _cmd_withoutpid=$(echo $_cmd|grep -oP ".*\_"|sed 's/\_//g')
+        _count=$(grep -c $_cmd_withoutpid $_tmp_file)
+        if [[ "$_count" > "1" ]]; then
+                echo -ne "$_cmd=$_load|" >> $_result_file
+        else
+                echo -ne "$_cmd_withoutpid=$_load|" >> $_result_file
+        fi
+done < $_tmp_file
+
+cat $_result_file | rev | cut -c 2- | rev

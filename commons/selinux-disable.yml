@@ -1,0 +1,11 @@
+---
+- name: SELinux in disabled mode
+  hosts: all
+  tasks:
+    - name: Updating SELinux config to disabled mode
+      ansible.builtin.lineinfile:
+        path: /etc/selinux/config
+        regexp: '^SELINUX='
+        line: 'SELINUX=disabled'
+        state: present
+- ansible.builtin.import_playbook: ../commons/reboot.yml

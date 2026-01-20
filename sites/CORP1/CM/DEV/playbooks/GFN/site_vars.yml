@@ -1,0 +1,15 @@
+---
+cmk_url: http://172.21.0.13/DEV
+grafana_url: http://172.21.0.13:3000
+grafana_datasources_url: http://172.21.0.13:3000/api/datasources
+grafana_gpg_key: https://rpm.grafana.com/gpg.key
+grafana_server_package_url: https://dl.grafana.com/grafana/release/12.3.1/grafana_12.3.1_20271043721_linux_amd64.rpm
+grafana_api_key_role: "Admin"
+grafana_datasource_name: "checkmk-cloud-datasource"
+grafana_datasource_type: "checkmk-cloud-datasource"
+grafana_server_package_name: grafana_12.3.1_20271043721_linux_amd64.rpm
+grafana_service_account_name: "ansible"
+grafana_service_account_role: "Admin"
+grafana_token_name: "ansible"
+site_vars_file: /home/ansible/checkmk_grafana_by_ansible/sites/CORP1/CM/DEV/playbooks/GFN/site_vars.yml
+vault_file: /home/ansible/variables/vars_file.yml

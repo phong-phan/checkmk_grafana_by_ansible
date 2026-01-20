@@ -1,0 +1,41 @@
+---
+cmk_agent_version: 2.4.0p3
+cmk_public_key: https://corp03-repo.corp.ilts.com/other-apps/Check_MK-pubkey.gpg
+cmk_rpm_agent_package_name: check-mk-agent-2.4.0p3-1.noarch.rpm
+cmk_rpm_agent_package_url: https://corp03-repo.corp.ilts.com/other-apps/check-mk-agent-2.4.0p3-1.noarch.rpm
+cmk_server: 172.21.0.101
+cmk_server_os: el9
+cmk_server_package_name: check-mk-raw-2.4.0p3-el9-38.x86_64.rpm
+cmk_server_package_url: https://corp03-repo.corp.ilts.com/other-apps/check-mk-raw-2.4.0p3-el9-38.x86_64.rpm
+cmk_server_version: 2.4.0p3
+cmk_site: tst
+cmk_url: http://172.21.0.101
+file_check_remote_dir: /usr/lib/check_mk_agent/custom_scripts/
+file_check_scripts:
+  - iLO_health_state.sh
+  - iLO_hw_health_state.sh
+folders:
+  - 'iLO'
+  - 'Linux'
+  - 'Networking'
+  - 'Storage'
+  - 'VMWare'
+  - 'Windows'
+local_check_remote_dir: /usr/lib/check_mk_agent/local/
+local_check_scripts:
+  - io_by_procs_db
+  - top_procs_by_cpu
+  - top_procs_by_mem
+  - top_procs_by_read
+  - top_procs_by_swap
+  - top_procs_by_write
+servers:
+  STM-TST-PDC-DC01:
+    ip: 1.1.1.1
+    folder: VMWare
+  STM-TST-PDC-DC02:
+    ip: 1.1.1.2
+    folder: Windows
+  STM-TST-PDC-CP01:
+    ip: 1.1.1.3
+    folder: Linux
