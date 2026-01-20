@@ -3,7 +3,6 @@
   hosts: all
   vars:
     bypass_users:
-      - "ILTSVN"
       - "ansible"
     rule_file: /etc/audit/rules.d/40-access.rules
   tasks:
@@ -14,7 +13,7 @@
         # Ensures the line is inserted only once (idempotency)
         regexp: '^-a never,exit -F auid={{ item }}$'
         state: present
-        create: yes
+        create: true
         backup: false
       loop: "{{ bypass_users }}"
       notify:

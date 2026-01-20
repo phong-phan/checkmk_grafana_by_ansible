@@ -14,7 +14,7 @@ cmk_automation_user_secret: grafanasvc_password
 cmk_ops_user: oper
 cmk_ops_user_secret: operator_operator
 # Password for 'registration' user Agent registration user
-registration_user_secret: ilts#Registration
+registration_user_secret: corp1#Registration
 
 # Login to Grafana
 grafana_user: admin
