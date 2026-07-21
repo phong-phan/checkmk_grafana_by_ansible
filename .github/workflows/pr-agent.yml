@@ -1,7 +1,7 @@
 name: PR Agent
 on:
   pull_request:
-    types: [opened, reopened, ready_for_review]
+    types: [opened, reopened, synchronize, ready_for_review]
   issue_comment:
     types: [created]
 
@@ -13,12 +13,18 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
+    concurrency:
+      group: pr-agent-${{ github.event.pull_request.number || github.event.issue.number }}
+      cancel-in-progress: true
     steps:
       - uses: qodo-ai/pr-agent@main
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           config.model: "gpt-4o-mini"
+          github_action_config.auto_review: "true"
+          github_action_config.auto_describe: "false"
+          github_action_config.auto_improve: "false"
           pr_reviewer.extra_instructions: |
             This is an Ansible playbook repository. Focus on:
             idempotency, FQCN module names, shell/command overuse,
