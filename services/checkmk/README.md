@@ -2,73 +2,68 @@
 
 ## A project to simplify the deployment of CheckMK
 
-
-- Install ChecMK Server 2.4.0b1 into Alma Linux 9.4 (Seafoam Ocelot) you can set this in site_vars.yml file but make sure the package is available (if custom repository is used) so that Ansible can pull from.
-- Install Agent on target server, register target nodes with CheckMK server.
-- Create service account for Grafana (used in datasource plugin) and operator account (view only)
-- Create folder, adding target nodes to folder, running service discovery, active changes on web.
-
+- Install CheckMK Server into AlmaLinux (RHEL-based); the package URL is set in `site_vars.yml`, so make sure it's reachable (a local/custom repo can be used to shorten download time).
+- Install the Agent on target servers and register them with the CheckMK server.
+- Create the automation user consumed by Grafana's datasource plugin and a read-only operator account.
+- Create folders, add target nodes to folders, run service discovery, activate changes.
+- Optional: HTTPS enforcement, custom/built-in agent plugins, custom check scripts (e.g. iLO health via Redfish, VMware snapshot summary), and LDAP/AD integration.
 
 ## Dependencies
 
  - [ansible.posix](https://github.com/ansible-collections/ansible.posix)
  - [ansible.utils](https://github.com/ansible-collections/ansible.utils)
  - [community.general](https://github.com/ansible-collections/community.general)
+ - [checkmk.general](https://github.com/Checkmk/ansible-collection-checkmk.general)
+ - [ansible.windows](https://github.com/ansible-collections/ansible.windows) and [community.windows](https://github.com/ansible-collections/community.windows) (for `3.2-checkmk-agent-install-windows.yml`; the target Windows hosts must already be reachable over WinRM)
 
 ## Setup
 
- Authentication information stored in Ansible host.
- - /home/ansible/variables/vars_file.yml
- The file should contain these information for both Grafana and CheckMK since they related to each other:
- ---
+Credentials are stored outside this repository on the Ansible control node, at:
+```
+/home/ansible/variables/vars_file.yml
+```
+See `sample_vars_files.yml` at the repo root for the full list of required keys. Every playbook validates its
+required secrets via `commons/validate-vault-keys.yml` before doing anything else, and stops if one is missing.
 
-# Example:
-
-customer_name: STM
-site: TST
-cmk_user: cmkadmin
-cmk_secret: abcabc
-cmk_automation_user: grafana_svc
-cmk_automation_user_secret: passwdpasswd
-grafana_user: admin
-grafana_secret: adminadmin
-grafana_viewer_user: oper
-grafana_viewer_secret: operpasswd
-cmk_ops_user: oper
-cmk_ops_user_secret: passwdpasswd
-
- Another file contains information about version of CheckMK Server, packages URL is imported per customer
- The exammple location of file is:
- To let ansible load this file from different location when deploy for different customer set a var called "customer_name" and "site" inside /home/ansible/variables/vars_file.yml 
- ../../envs/NA/CM/DRC/playbooks/CMK/site_vars.yml
-
+Non-secret, per-site configuration (CheckMK URL, package URLs, folders, monitored hosts, etc.) lives in:
+```
+sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+```
+`customer_name` and `site` are set in the vault file above so Ansible knows which `site_vars.yml` to load.
 
 ## Structure:
 
 ```bash
-├── 1-checkmk-folder-creation.yml          # Create folders in CheckMK
-├── 2-checkmk-add-host-to-folder.yml       # Add a host into a CheckMK folder
-├── 3.1-checkmk-agent-install-linux.yml    # Install CheckMK agent on Linux
-├── 3.2-checkmk-agent-install-windows.yml  # Install CheckMK agent on Windows
-├── 4-checkmk-service-discovery.yml        # Run service discovery on target servers after agent installation
-├── 5-checkmk-site-activation.yml          # Activate the changes on CheckMK site
-├── checkmk-add-host-to-monitor.yml        # Master playbook chaining 1-5
-├── checkmk-install.yml                    # Install CheckMK itself (server-side)
-├── checkmk-csv-check.yml                  # Pushing custom check that create .csv files for Grafana
-├── checkmk-custom-check-push.yml          # Pushing localcheck used to montior custom metric
-├── checkmk-remove-host-from-folder.yml    # Remove a host from CheckMK
-├── README.md                              # Description / how-to
+├── 1-checkmk-folder-creation.yml               # Create folders in CheckMK
+├── 2-checkmk-add-host-to-folder.yml            # Add a host into a CheckMK folder
+├── 3.1-checkmk-agent-install-linux.yml         # Install/register CheckMK agent on Linux hosts
+├── 3.2-checkmk-agent-install-windows.yml       # Install/register CheckMK agent on Windows hosts
+├── 4-checkmk-service-discovery.yml             # Run service discovery on target servers after agent installation
+├── 5-checkmk-site-activation.yml               # Activate the changes on the CheckMK site
+├── checkmk-add-host-to-monitor.yml             # Convenience wrapper chaining 1-5
+├── checkmk-install.yml                         # Install CheckMK itself (server-side) and create service users
+├── checkmk-install-custom-plugins.yml          # Import custom check plugins (server-plugins/) into the CheckMK site
+├── checkmk-remove-host-from-folder.yml         # Remove a host from CheckMK
+├── checkmk-https-setup.yml                     # Enforce HTTPS on the CheckMK server via httpd
+├── checkmk-client-install-built-in-plugin.yml  # Download a built-in agent plugin from the CheckMK server to a client
+├── checkmk-client-install-custom-plugin.yml    # Push a custom agent plugin (client-plugins/) to a client
+├── checkmk-custom-check-deploy.yml             # Deploy templated custom checks (iLO health, vCenter snapshots, csv export)
+├── checkmk-ad-integration.yml                  # Configure LDAP/AD user connections in CheckMK
+├── checkmk-csv-check.yml                       # Simple push of static .csv check scripts from filecheck/
+├── checkmk-custom-check-push.yml               # Simple push of static local-check scripts from localcheck/
+├── server-plugins/                             # Example server-side check plugins (checkmk-install-custom-plugins.yml)
+├── client-plugins/                              # Example client-side agent plugins (checkmk-client-install-custom-plugin.yml)
+├── j2-template/                                # Jinja2 templates used by the optional playbooks above
+├── filecheck/, localcheck/                     # Static scripts used by checkmk-csv-check.yml / checkmk-custom-check-push.yml
+├── README.md                                    # Description / how-to
 ```
 
 ## Usage:
 
 ```bash
-
-
-# Each site (PDC,DRC or TST) will have its own varible about site name, IP of nodes,... stored in site_vars.yml file so please modify it before run.
-# With customer who has local repository deployed, packages should be retrieved from there to shorten download time and ensure exact version is installed.
-# Playbook will be call in form of bash script file.
-# For example this bash script is going to install CheckMK for NA PDC site.
-cd system-automation/envs/NA/CM/PDC
-bash NA-PDC-CMK.sh
-
+# Each site will have its own site_vars.yml with site name, package URLs and monitored hosts,
+# so modify it before running. With a local package repository, point the *_package_url vars
+# at it to shorten download time and pin an exact version.
+cd sites/CORP1/CM/DEV
+bash DEV-MONITORING.sh
+```

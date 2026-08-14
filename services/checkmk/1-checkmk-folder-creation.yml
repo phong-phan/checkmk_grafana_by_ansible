@@ -1,10 +1,15 @@
 ---
-- name: Create CheckMK folder
+- name: Creating CheckMK folders
   hosts: all
   vars_files:
     - /home/ansible/variables/vars_file.yml
-    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
   tasks:
+    - name: Validating required vault variables
+      ansible.builtin.include_tasks: ../../commons/validate-vault-keys.yml
+      vars:
+        required_vars:
+          - cmk_secret
     - name: Creating a CheckMK folder
       checkmk.general.folder:
         server_url: "{{ cmk_url }}"
@@ -14,4 +19,4 @@
         path: "/{{ item }}"
         name: "{{ item }}"
         state: "present"
-      loop: "{{ folders }}"
+      loop: "{{ cmk_folders }}"

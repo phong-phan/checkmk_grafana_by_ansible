@@ -3,14 +3,39 @@
 - name: Installing CheckMK on RHEL based server
   hosts: all
   vars_files:
-    - /home/ansible/vars/vars_file.yml
-    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+    - /home/ansible/variables/vars_file.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
   tasks:
+    - name: Validating required vault variables
+      ansible.builtin.include_tasks: ../../commons/validate-vault-keys.yml
+      vars:
+        required_vars:
+          - cmk_secret
+          - cmk_automation_user_secret
+          - registration_user_secret
+          - cmk_ops_user_secret
+    - name: Installing required dependencies
+      ansible.builtin.dnf:
+        name:
+          - wget
+          - curl
+        state: present
+        update_cache: true
     - name: Importing CheckMK GPG key
       ansible.builtin.rpm_key:
         state: present
         key: "{{ cmk_public_key }}"
         validate_certs: false
+    - name: Checking /etc/cron.allow exists
+      ansible.builtin.stat:
+        path: /etc/cron.allow
+      register: cron_allow
+    - name: Adding {{ cmk_site }} site to /etc/cron.allow
+      ansible.builtin.lineinfile:
+        path: /etc/cron.allow
+        line: "{{ cmk_site }}"
+        create: false
+      when: cron_allow.stat.exists
     - name: Allowing services on firewalld
       ansible.posix.firewalld:
         service: "{{ item }}"
@@ -30,26 +55,20 @@
         - 6556/tcp
         - 6557/tcp
         - 8000/tcp
-    - name: Installing required dependencies
-      ansible.builtin.dnf:
-        name:
-          - wget
-          - curl
-        state: present
-        update_cache: true
-    - name: Check if CheckMK is already installed
-      ansible.builtin.shell: "rpm -q check-mk-raw-{{ cmk_server_version }}"
+    - name: Checking if CheckMK is already installed
+      ansible.builtin.shell: |
+        rpm -q "{{ cmk_server_package_url | basename | replace('.rpm', '') }}"
       register: checkmk_installed
       ignore_errors: true
     - name: Downloading CheckMK RPM package to /tmp
       ansible.builtin.get_url:
         url: "{{ cmk_server_package_url }}"
-        dest: "/tmp/{{ cmk_server_package_name }}"
+        dest: "/tmp/{{ cmk_server_package_url | basename }}"
         validate_certs: false
       when: checkmk_installed != 0
     - name: Installing CheckMK RPM package
       ansible.builtin.dnf:
-        name: "/tmp/{{ cmk_server_package_name }}"
+        name: "/tmp/{{ cmk_server_package_url | basename }}"
         state: present
         update_cache: true
       when: checkmk_installed != 0
@@ -60,7 +79,7 @@
         creates: "/omd/sites/{{ cmk_site }}"
     - name: Resetting cmkadmin password
       ansible.builtin.shell:
-        cmd: "su - {{ cmk_site }} sh -c \"echo {{ cmk_secret }} | cmk-passwd -i cmkadmin\""
+        cmd: "su - {{ cmk_site }} sh -c \"echo {{ cmk_secret }} | cmk-passwd -i {{ cmk_user }}\""
       tags: change_passwd
     - name: Checking if CheckMK site is running
       ansible.builtin.shell:
@@ -85,7 +104,7 @@
           - "admin"
         state: "present"
       tags: svc_user
-    - name: "Create an automation user for Agent Registration"
+    - name: "Creating an automation user for Agent Registration"
       checkmk.general.user:
         server_url: "{{ cmk_url }}"
         site: "{{ cmk_site }}"
@@ -99,7 +118,7 @@
           - "agent_registration"
         state: "present"
       tags: regis_user
-    - name: Creating Checkmk read-only user for Ops team
+    - name: Creating CheckMK read-only user for Ops team
       checkmk.general.user:
         server_url: "{{ cmk_url }}"
         site: "{{ cmk_site }}"
@@ -113,8 +132,8 @@
           - "guest"
         state: "present"
       tags: oper_user
-    - name: Enabling httpd
+    - name: Enabling and restarting httpd
       ansible.builtin.systemd_service:
         name: httpd.service
-        state: started
+        state: restarted
         enabled: true

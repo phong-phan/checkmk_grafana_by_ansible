@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Only run if nfsstat exists
+if ! command -v nfsstat >/dev/null 2>&1; then
+    exit 0
+fi
+
+# Optional: timeout to avoid hanging
+TIMEOUT=5
+
+echo "<<<nfsstat>>>"
+
+# Run nfsstat safely
+if command -v timeout >/dev/null 2>&1; then
+    timeout ${TIMEOUT}s nfsstat -s 2>/dev/null
+else
+    nfsstat -s 2>/dev/null
+fi

@@ -1,0 +1,69 @@
+---
+- name: Deploying custom checks to remote hosts
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  vars:
+    local_check_remote_dir: /usr/lib/check_mk_agent/custom_check
+    cmk_ilo_health_template: j2-template/iLO-health-state.sh.j2
+    cmk_ilo_hardware_health_template: j2-template/iLO-hw-health-state.sh.j2
+    cmk_ilo_power_usage_template: j2-template/iLO-power-consumed.sh.j2
+    cmk_snapshot_summary_template: j2-template/snapshot-summary.sh.j2
+    cmk_custom_check_cron_config: j2-template/checkmk-custom-check-cron.conf.j2
+    cmk_custom_check_cron_config_name: checkmk_custom_checks
+    cmk_csv_remote_dir: /var/cmk
+    cmk_csv_http_export_config_path: export
+    cmk_csv_http_export_config_template: j2-template/checkmk-csv-export-httpd.conf.j2
+    cmk_csv_http_export_config_file_name: checkmk_export.conf
+    cmk_ilo_env_var_template: j2-template/checkmk-creds.env.j2
+    cmk_custom_scripts:
+      - src: "{{ cmk_ilo_health_template }}"
+        dest: iLO_health_state.sh
+        run_as_site_user: false
+      - src: "{{ cmk_ilo_hardware_health_template }}"
+        dest: iLO_hw_health_state.sh
+        run_as_site_user: false
+      - src: "{{ cmk_ilo_power_usage_template }}"
+        dest: iLO_power_consumed.sh
+        run_as_site_user: false
+      - src: "{{ cmk_snapshot_summary_template }}"
+        dest: snapshot_summary.sh
+        run_as_site_user: true
+  tasks:
+    - name: Validating required vault variables
+      ansible.builtin.include_tasks: ../../commons/validate-vault-keys.yml
+      vars:
+        required_vars:
+          - cmk_ilo_svc_pass
+    - name: Ensuring destination directory exists
+      ansible.builtin.file:
+        path: "{{ local_check_remote_dir }}"
+        state: directory
+        mode: 0755
+    - name: Uploading custom check script templates
+      ansible.builtin.template:
+        src: "{{ item.src }}"
+        dest: "{{ local_check_remote_dir }}/{{ item.dest }}"
+        mode: 0755
+      loop: "{{ cmk_custom_scripts }}"
+    - name: Uploading CheckMK env variables template
+      ansible.builtin.template:
+        src: "{{ cmk_ilo_env_var_template }}"
+        dest: "{{ local_check_remote_dir }}/checkmk_creds"
+        mode: 0600
+    - name: Uploading CheckMK custom checks cron config file
+      ansible.builtin.template:
+        src: "{{ cmk_custom_check_cron_config }}"
+        dest: "/etc/cron.d/{{ cmk_custom_check_cron_config_name }}"
+        mode: 0644
+    - name: Uploading CheckMK httpd export config file
+      ansible.builtin.template:
+        src: "{{ cmk_csv_http_export_config_template }}"
+        dest: "/etc/httpd/conf.d/{{ cmk_csv_http_export_config_file_name }}"
+        mode: 0644
+    - name: Creating remote directory for csv export
+      ansible.builtin.file:
+        path: "{{ cmk_csv_remote_dir }}"
+        state: directory
+        mode: 0755

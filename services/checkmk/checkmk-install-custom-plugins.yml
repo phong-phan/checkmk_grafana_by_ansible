@@ -1,0 +1,49 @@
+---
+- name: Installing custom CheckMK plugins on server
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  tasks:
+    - name: Creating custom plugin directory
+      ansible.builtin.file:
+        path: "/omd/sites/{{ cmk_site }}/local/lib/python3/cmk_addons/plugins/{{ item | regex_replace('\\.py$', '') }}/agent_based/"
+        state: directory
+        owner: "{{ cmk_site }}"
+        group: "{{ cmk_site }}"
+        mode: 0755
+      loop: "{{ query('fileglob', 'server-plugins/*.py') | map('basename') | list }}"
+    - name: Importing custom plugins to CheckMK site
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "/omd/sites/{{ cmk_site }}/local/lib/python3/cmk_addons/plugins/{{ item | basename | regex_replace('\\.py$', '') }}/agent_based/{{ item | basename }}"
+        owner: "{{ cmk_site }}"
+        group: "{{ cmk_site }}"
+        mode: 0644
+      loop: "{{ query('fileglob', 'server-plugins/*.py') }}"
+    - name: Gathering list of custom plugins after import
+      ansible.builtin.find:
+        paths: "/omd/sites/{{ cmk_site }}/local/lib/python3/cmk_addons/plugins/"
+        patterns: "*.py"
+        recurse: true
+        file_type: file
+      register: custom_plugins
+    - name: Debugging list of imported custom plugins
+      ansible.builtin.debug:
+        var: custom_plugins.files | map(attribute='path') | list
+    - name: Restarting CheckMK service to apply changes
+      ansible.builtin.shell: |
+        omd restart {{ cmk_site }}
+    - name: Running quick test for all plugins after import
+      ansible.builtin.shell: |
+        su - {{ cmk_site }} -c "python3 local/lib/python3/cmk_addons/plugins/{{ item | splitext | first }}/agent_based/{{ item }}"
+      loop: "{{ query('fileglob', 'server-plugins/*.py') | map('basename') | list }}"
+      register: plugin_test_output
+      ignore_errors: true
+    - name: Debugging plugin test output (only errors)
+      ansible.builtin.debug:
+        var: item.stderr
+      loop: "{{ plugin_test_output.results }}"
+      failed_when: item.rc != 0
+      loop_control:
+        label: "{{ item.item }}"

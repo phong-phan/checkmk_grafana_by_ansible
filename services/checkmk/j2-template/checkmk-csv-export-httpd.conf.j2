@@ -1,0 +1,6 @@
+Alias "/{{ cmk_csv_http_export_config_path }}" "{{ cmk_csv_remote_dir }}"
+<Directory "{{ cmk_csv_remote_dir }}">
+    Options Indexes FollowSymLinks
+    AllowOverride None
+    Require all granted
+</Directory>

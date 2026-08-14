@@ -3,8 +3,13 @@
   hosts: all
   vars_files:
     - /home/ansible/variables/vars_file.yml
-    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
   tasks:
+    - name: Validating required vault variables
+      ansible.builtin.include_tasks: ../../commons/validate-vault-keys.yml
+      vars:
+        required_vars:
+          - cmk_secret
     - name: Adding host into corresponding folder
       checkmk.general.host:
         server_url: "{{ cmk_url }}"
@@ -16,4 +21,4 @@
           ipaddress: "{{ item.value.ip }}"
         folder: "{{ item.value.folder }}"
         state: "present"
-      loop: "{{ servers | dict2items }}"
+      loop: "{{ cmk_monitored_hosts | dict2items }}"

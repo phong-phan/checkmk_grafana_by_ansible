@@ -1,0 +1,17 @@
+#!/bin/bash
+# GET ILO SYSTEM OVERALL STATUS HEALTH
+source {{ local_check_remote_dir }}/checkmk_creds
+hosts='
+{% for server in ilo_servers %}
+{{ server }}
+{% endfor %}
+'
+# Clean previous content:
+truncate -s 0 {{ cmk_csv_remote_dir }}/iLO_state.csv
+echo "Host,State" > {{ cmk_csv_remote_dir }}/iLO_state.csv
+
+# Get the status health from iLO hosts
+for host in $hosts; do
+    health=$(curl -s -k -u $ILO_SVC_USER:$ILO_SVC_PASS https://$host/redfish/v1/Systems/1 | jq -r '.Status.Health')
+    echo "$host,$health" >> {{ cmk_csv_remote_dir }}/iLO_state.csv
+done

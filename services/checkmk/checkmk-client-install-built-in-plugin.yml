@@ -1,0 +1,35 @@
+---
+- name: Installing built-in plugin for CheckMK client
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  vars:
+    cmk_server_plugin_url: "{{ cmk_url }}/{{ cmk_site }}/check_mk/agents/plugins/{{ cmk_built_in_plugin_name }}"
+    cmk_agent_plugins_dir: /usr/lib/check_mk_agent/plugins
+  tasks:
+    - name: Checking url availability
+      ansible.builtin.uri:
+        url: "{{ cmk_server_plugin_url }}"
+        method: HEAD
+        return_content: false
+      register: url_check
+      ignore_errors: true
+    - name: Creating CheckMK agent plugins directory if it does not exist
+      ansible.builtin.file:
+        path: "{{ cmk_agent_plugins_dir }}"
+        state: directory
+        mode: 0755
+    - name: Downloading {{ cmk_server_plugin_url | basename }} for CheckMK client
+      ansible.builtin.get_url:
+        url: "{{ cmk_server_plugin_url }}"
+        dest: "{{ cmk_agent_plugins_dir }}/{{ cmk_server_plugin_url | basename }}"
+        mode: 0755
+      when: url_check.status == 200
+      ignore_errors: true
+    - name: Reporting download failure if url is not accessible
+      ansible.builtin.debug:
+        msg: |
+          Failed to download {{ cmk_server_plugin_url | basename }} plugin from {{ cmk_server_plugin_url }}
+          Please check the URL and network connectivity
+      when: url_check.status != 200

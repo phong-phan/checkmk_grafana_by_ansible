@@ -1,0 +1,10 @@
+# Run custom checks for CheckMK
+SHELL=/bin/bash
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+{% for script in cmk_custom_scripts %}
+{% if script.run_as_site_user %}
+*/30 * * * * root  su - {{ cmk_site }} -c "{{ local_check_remote_dir }}/{{ script.dest }}"
+{% else %}
+*/30 * * * * root {{ local_check_remote_dir }}/{{ script.dest }}
+{% endif %}
+{% endfor %}

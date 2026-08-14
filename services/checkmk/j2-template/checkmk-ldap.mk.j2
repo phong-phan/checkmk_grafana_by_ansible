@@ -1,0 +1,42 @@
+{% for domain in cmk_ldap_domains %}
+user_connections += [
+    {
+        'id': '{{ domain.id }}',
+        'description': '{{ domain.description }}',
+        'comment': '',
+        'docu_url': '',
+        'disabled': False,
+        'type': 'ldap',
+        'directory_type': ('ad', {
+            'connect_to': ('fixed_list', {
+                'server': '{{ domain.server }}',
+                'failover_servers': {{ domain.failover_servers | list }},
+            }),
+        }),
+        'bind': ('{{ domain.bind_user }}', ('password', '{{ sssd_ad_admin_password }}')),
+        'port': {{ domain.port }},
+        'user_dn': '{{ domain.user_dn }}',
+        'user_scope': 'sub',
+        'user_id': 'samaccountname',
+        'user_id_umlauts': 'keep',
+        'group_dn': '{{ domain.group_dn }}',
+        'group_scope': 'sub',
+        'active_plugins': {
+            'groups_to_roles': {
+                'admin': [
+{% for g in domain.admin_groups %}
+                    ('{{ g }}', None),
+{% endfor %}
+                ],
+                'guest': [
+{% for g in domain.guest_groups %}
+                    ('{{ g }}', None),
+{% endfor %}
+                ],
+            },
+        },
+        'cache_livetime': {{ cmk_ldap_sync_interval }},
+        'type': 'ldap',
+    },
+]
+{% endfor %}

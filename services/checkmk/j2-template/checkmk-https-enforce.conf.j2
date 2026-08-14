@@ -1,0 +1,29 @@
+# Redirect from http ip to https domain
+<VirtualHost *:80>
+    ServerName "{{ checkmk_server_ip }}"
+    RewriteEngine On
+    RewriteRule ^(.*)$ https://{{ checkmk_server_domain }}$1 [R=301,L]
+</VirtualHost>
+# Redirect from http domain to https domain
+<VirtualHost *:80>
+    ServerName {{ checkmk_server_domain }}
+    RewriteEngine On
+    # Redirect all HTTP requests directly to HTTPS
+    RewriteRule ^(.*)$ https://{{ checkmk_server_domain }}$1 [R=301,L]
+</VirtualHost>
+# Redirect from https ip to https domain
+<VirtualHost *:443>
+    ServerName "{{ checkmk_server_ip }}"
+    RewriteEngine On
+    RewriteRule ^(.*)$ https://{{ checkmk_server_domain }}$1 [R=301,L]
+    SSLEngine on
+    SSLCertificateFile {{ checkmk_cert_file }}
+    SSLCertificateKeyFile {{ checkmk_key_file }}
+</VirtualHost>
+# Main https domain
+<VirtualHost *:443>
+    ServerName {{ checkmk_server_domain }}
+    SSLEngine on
+    SSLCertificateFile {{ checkmk_cert_file }}
+    SSLCertificateKeyFile {{ checkmk_key_file }}
+</VirtualHost>

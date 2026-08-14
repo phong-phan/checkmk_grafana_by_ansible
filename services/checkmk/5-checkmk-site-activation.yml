@@ -1,16 +1,20 @@
 ---
-- name: Running CheckMK Site Activation
+- name: Running CheckMK site activation
   hosts: all
   vars_files:
     - /home/ansible/variables/vars_file.yml
-    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
   tasks:
-    - name: Running CheckMK Site activation."
+    - name: Validating required vault variables
+      ansible.builtin.include_tasks: ../../commons/validate-vault-keys.yml
+      vars:
+        required_vars:
+          - cmk_secret
+    - name: Running CheckMK site activation
       checkmk.general.activation:
         server_url: "{{ cmk_url }}"
         site: "{{ cmk_site }}"
         automation_user: "{{ cmk_user }}"
         automation_secret: "{{ cmk_secret }}"
-        force_foreign_changes: 'true'
-        sites:
-          - "{{ cmk_site }}"
+        force_foreign_changes: true
+        sites: ["{{ cmk_site }}"]

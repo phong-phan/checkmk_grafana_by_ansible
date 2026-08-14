@@ -1,0 +1,28 @@
+---
+- name: Configuring CheckMK LDAP/AD connections
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  vars:
+    cmk_ldap_config_template: j2-template/checkmk-ldap.mk.j2
+    cmk_ldap_config_file_path: "/omd/sites/{{ cmk_site }}/etc/check_mk/multisite.d/wato/user_connections.mk"
+  tasks:
+    - name: Validating required vault variables
+      ansible.builtin.include_tasks: ../../commons/validate-vault-keys.yml
+      vars:
+        required_vars:
+          - sssd_ad_admin_password
+    - name: Deploying LDAP connection file
+      ansible.builtin.template:
+        src: "{{ cmk_ldap_config_template }}"
+        dest: "{{ cmk_ldap_config_file_path }}"
+        owner: "{{ cmk_site }}"
+        group: "{{ cmk_site }}"
+        mode: 0640
+        backup: true
+      register: ldap_file
+    - name: Reloading CheckMK site
+      ansible.builtin.shell: |
+        omd reload {{ cmk_site }}
+      when: ldap_file.changed

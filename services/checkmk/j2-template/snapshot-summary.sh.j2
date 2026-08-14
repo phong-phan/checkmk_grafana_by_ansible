@@ -1,0 +1,7 @@
+#!/bin/bash
+# GET VMWARE SNAPSHOT SUMMARY
+# Query CheckMK agent on vCenter server
+# Extract the esx_vsphere_snapshots_summary block
+# Remove header and footer
+# Format data and save it in CSV
+cmk -d {{ cmk_vcenter_web_name }} | sed -n '/<<<esx_vsphere_snapshots_summary/,/<<<esx_vsphere_clusters/p' | grep "^{" | jq -s -r '["VM Name", "Snapshot Name", "Snapshot State", "Time"], (.[] | [.vm, .name, .state, .time]) | @csv' > {{ cmk_csv_remote_dir }}/snapshot_summary.csv

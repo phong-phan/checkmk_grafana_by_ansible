@@ -1,0 +1,33 @@
+---
+- name: Configuring HTTPS for CheckMK
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  tasks:
+    - name: Validating required SSL key files
+      ansible.builtin.include_tasks: ../../commons/validate-ssl-keys.yml
+      vars:
+        files_to_check:
+          - "{{ checkmk_cert_file }}"
+          - "{{ checkmk_key_file }}"
+    - name: Installing httpd and mod_ssl packages
+      ansible.builtin.dnf:
+        name:
+          - httpd
+          - mod_ssl
+        state: present
+    - name: Creating HTTPS enforcing configuration file
+      ansible.builtin.template:
+        src: j2-template/checkmk-https-enforce.conf.j2
+        dest: "{{ checkmk_httpd_ssl_config_file }}"
+        mode: 0644
+        trim_blocks: true
+        lstrip_blocks: true
+        backup: true
+      notify: restart_httpd_service
+  handlers:
+    - name: restart_httpd_service
+      ansible.builtin.systemd_service:
+        name: httpd.service
+        state: restarted

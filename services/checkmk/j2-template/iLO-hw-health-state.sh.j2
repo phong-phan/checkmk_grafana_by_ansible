@@ -1,0 +1,20 @@
+#!/bin/bash
+# GET ILO SYSTEM HARDWARE STATUS HEALTH
+source {{ local_check_remote_dir }}/checkmk_creds
+hosts='
+{% for server in ilo_servers %}
+{{ server }}
+{% endfor %}
+'
+for host in $hosts
+do
+        # Clean previous content for each file:
+        truncate -s 0 {{ cmk_csv_remote_dir }}/$host.csv
+        echo 'Component,State' > {{ cmk_csv_remote_dir }}/$host.csv
+        curl -s -k -u $ILO_SVC_USER:$ILO_SVC_PASS https://$host/redfish/v1/Systems/1 | jq -r '
+          .Oem.Hpe.AggregateHealthStatus |
+          to_entries[] |
+          select(.value.Status?.Health) |
+          "\(.key),\(.value.Status.Health)"
+        ' >> {{ cmk_csv_remote_dir }}/$host.csv
+done

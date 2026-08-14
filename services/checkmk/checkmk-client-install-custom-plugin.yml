@@ -1,0 +1,20 @@
+---
+- name: Installing custom plugin for CheckMK client
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  vars:
+    cmk_agent_plugins_template: client-plugins/nfsstat
+    cmk_agent_plugins_dir: /usr/lib/check_mk_agent/plugins
+  tasks:
+    - name: Creating CheckMK agent plugins directory if it does not exist
+      ansible.builtin.file:
+        path: "{{ cmk_agent_plugins_dir }}"
+        state: directory
+        mode: 0755
+    - name: Copying custom plugin to CheckMK agent plugins directory
+      ansible.builtin.template:
+        src: "{{ cmk_agent_plugins_template }}"
+        dest: "{{ cmk_agent_plugins_dir }}/{{ cmk_agent_plugins_template | basename }}"
+        mode: 0755
