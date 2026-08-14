@@ -2,20 +2,34 @@
 ## Server:
 ## ______________________________
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-install.yml
+# - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-install-custom-plugins.yml
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/1-checkmk-folder-creation.yml
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/2-checkmk-add-host-to-folder.yml
 # - ansible.builtin.import_playbook: ../../../../../services/grafana/grafana-server-install.yml
 # - ansible.builtin.import_playbook: ../../../../../services/grafana/grafana-api-creation.yml
+# - ansible.builtin.import_playbook: ../../../../../services/grafana/grafana-add-cmk-datasource.yml
 # - ansible.builtin.import_playbook: ../../../../../services/grafana/grafana-connection-creation.yml
 # - ansible.builtin.import_playbook: ../../../../../services/grafana/grafana-datasource-uid-get.yml
 
 ## ______________________________
-## All:
+## Agent (runs from a single host, delegates to each host in cmk_monitored_hosts, no --limit needed):
 ## ______________________________
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/3.1-checkmk-agent-install-linux.yml
+# - ansible.builtin.import_playbook: ../../../../../services/checkmk/3.2-checkmk-agent-install-windows.yml
+# - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-client-install-built-in-plugin.yml
+# - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-client-install-custom-plugin.yml
 
 ## ______________________________
 ## Server:
 ## ______________________________
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/4-checkmk-service-discovery.yml
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/5-checkmk-site-activation.yml
+
+## ______________________________
+## Server (optional, run individually as needed):
+## ______________________________
+# - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-https-setup.yml
+# - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-custom-check-deploy.yml
+# - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-ad-integration.yml
+# - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-remove-host-from-folder.yml
+# - ansible.builtin.import_playbook: ../../../../../services/grafana/grafana-ad-integration.yml

@@ -7,9 +7,45 @@ grafana_server_package_url: https://dl.grafana.com/grafana/release/12.3.1/grafan
 grafana_api_key_role: "Admin"
 grafana_datasource_name: "checkmk-cloud-datasource"
 grafana_datasource_type: "checkmk-cloud-datasource"
-grafana_server_package_name: grafana_12.3.1_20271043721_linux_amd64.rpm
 grafana_service_account_name: "ansible"
 grafana_service_account_role: "Admin"
 grafana_token_name: "ansible"
 site_vars_file: /home/ansible/checkmk_grafana_by_ansible/sites/CORP1/CM/DEV/playbooks/GFN/site_vars.yml
 vault_file: /home/ansible/variables/vars_file.yml
+
+# used by grafana-server-install.yml
+grafana_config_file: /etc/grafana/grafana.ini
+grafana_port: 3000
+grafana_ssl_enable: false
+grafana_ssl_cert_file: /etc/ssl/certs/grafana-cert.pem
+grafana_ssl_key_file: /etc/ssl/certs/grafana-cert.key
+grafana_cert_validate: false
+grafana_plugins_local_install: false
+grafana_plugins:
+  - checkmk-cloud-datasource
+  - yesoreyeram-infinity-datasource
+grafana_plugins_dir: /var/lib/grafana/plugins
+
+# used by grafana-ad-integration.yml
+grafana_ldap_host: 172.21.0.21
+grafana_ldap_port: 3268
+grafana_ldap_enable_ssl: false
+grafana_ldap_use_ssl: false
+grafana_ldap_start_tls: false
+grafana_ldap_ssl_skip_verify: true
+grafana_ldap_bind_dn: "cn=svc_automation,cn=Managed Service Accounts,dc=corp1,dc=local"
+grafana_ldap_search_filter: "(sAMAccountName=%s)"
+grafana_ldap_search_base_dns:
+  - "dc=corp1,dc=local"
+grafana_ldap_attr_name: "givenName"
+grafana_ldap_attr_surname: "sn"
+grafana_ldap_attr_username: "sAMAccountName"
+grafana_ldap_attr_member_of: "memberOf"
+grafana_ldap_attr_email: "mail"
+grafana_ldap_group_mappings:
+  - group_dn: "cn=grafana-admin,ou=Groups,dc=corp1,dc=local"
+    org_role: "Admin"
+  - group_dn: "cn=grafana-operator,ou=Groups,dc=corp1,dc=local"
+    org_role: "Editor"
+  - group_dn: "*"
+    org_role: "Viewer"

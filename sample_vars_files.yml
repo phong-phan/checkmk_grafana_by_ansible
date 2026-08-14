@@ -23,3 +23,10 @@ grafana_secret: grafanapassword
 # Operator user used by NOC team
 grafana_viewer_user: oper
 grafana_viewer_secret: operator_operator
+
+# Bind password for the AD service account, used by checkmk-ad-integration.yml
+# and grafana-ad-integration.yml
+sssd_ad_admin_password: ad_bind_password
+
+# Password for the iLO/Redfish service account, used by checkmk-custom-check-deploy.yml
+cmk_ilo_svc_pass: ilo_service_password

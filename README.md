@@ -53,15 +53,20 @@ CORP/CM/DEV/playbooks/{CMK,GFN}/site_vars.yml
 
 ### Step 2: Agent Installation
 
-**Goal:** Install Checkmk agent on all Linux hosts.
+**Goal:** Install the Checkmk agent on the hosts listed in `cmk_monitored_hosts` (`site_vars.yml`).
 
-1. Open `DEV-Monitoring.yml` and `DEV-MONITORING.sh`.
-2. **Uncomment** the `All` block in both files.
-3. Run the deployment script:
+The agent-install playbooks run as a single play that loops over `cmk_monitored_hosts` and uses
+`delegate_to` to reach each host's IP, so they execute against the same host as the other steps
+(e.g. `--limit CORP1_CMK`) — no separate inventory group or `--limit` override is needed here.
+
+1. Open `DEV-Monitoring.yml`.
+2. **Uncomment** the `Agent` block.
+3. **Comment** the other blocks.
+4. Run the deployment script:
    ```bash
    ./DEV-MONITORING.sh
    ```
-4. After completion, **comment** the `All` block in both files.
+5. After completion, **comment** the `Agent` block in `DEV-Monitoring.yml`.
 
 ### Step 3: Service Discovery & Activation
 
@@ -79,3 +84,10 @@ CORP/CM/DEV/playbooks/{CMK,GFN}/site_vars.yml
 ### Step 4: Verification
 
 - Confirm that all new data and hosts have been correctly added to Checkmk.
+
+### Optional playbooks
+
+`DEV-Monitoring.yml` also has a commented-out block of optional playbooks you can uncomment and run
+individually as needed: HTTPS enforcement, custom/built-in agent plugins, templated custom checks
+(iLO health via Redfish, VMware snapshot summary), removing a host, and LDAP/AD integration for
+both Checkmk and Grafana. See `services/checkmk/README.md` and `services/grafana/README.md` for details.

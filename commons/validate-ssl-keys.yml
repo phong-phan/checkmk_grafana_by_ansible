@@ -1,0 +1,16 @@
+---
+# task file to validate the existence of TLS certificate and key files
+- name: Checking if TLS cert and key files exist
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ files_to_check }}"
+  register: tls_files
+- name: Failing if TLS cert or key file is missing
+  ansible.builtin.fail:
+    msg: >
+      TLS certificate or key file is missing.
+      Checked files:
+      {% for f in tls_files.results %}
+      - {{ f.item }} (exists: {{ f.stat.exists | default(false) }})
+      {% endfor %}
+  when: tls_files.results | selectattr('stat.exists', 'equalto', false) | list | length > 0

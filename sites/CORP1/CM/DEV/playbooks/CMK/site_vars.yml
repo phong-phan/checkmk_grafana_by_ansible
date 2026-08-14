@@ -2,16 +2,21 @@
 cmk_site: DEV
 cmk_url: http://172.21.0.13
 cmk_server: 172.21.0.13
-cmk_server_version: 2.4.0p19
 cmk_public_key: https://download.checkmk.com/checkmk/Check_MK-pubkey.gpg
 cmk_server_package_url: https://download.checkmk.com/checkmk/2.4.0p19/check-mk-raw-2.4.0p19-el9-38.x86_64.rpm
-cmk_rpm_agent_package_url: http://172.21.0.13/DEV/check_mk/agents/check-mk-agent-2.4.0p19-1.noarch.rpm       
-cmk_server_package_name: check-mk-raw-2.4.0p19-el9-38.x86_64.rpm
-cmk_rpm_agent_package_name: check-mk-agent-2.4.0p19-1.noarch.rpm
+cmk_rpm_agent_package_url: http://172.21.0.13/DEV/check_mk/agents/check-mk-agent-2.4.0p19-1.noarch.rpm
+cmk_msi_agent_package_url: http://172.21.0.13/DEV/check_mk/agents/windows/check-mk-agent-2.4.0p19-1.noarch.msi
 cmk_agent_version: 2.4.0p19
 cmk_server_os: el9
 
-folders:
+cmk_agent_firewall_port: 6556
+cmk_agent_validate_certs: false
+cmk_agent_linux_host_folders:
+  - Linux
+cmk_agent_windows_host_folders:
+  - Windows
+
+cmk_folders:
   - 'iLO'
   - 'Linux'
   - 'Networking'
@@ -20,7 +25,7 @@ folders:
   - 'Windows'
   - 'Connection-Monitoring'
 
-servers:
+cmk_monitored_hosts:
   CORP1-ANS:
     ip: 172.21.0.10
     folder: Linux
@@ -60,3 +65,59 @@ servers:
   CORP1-DC02:
     ip: 172.21.0.22
     folder: Windows
+
+# example hosts to remove with checkmk-remove-host-from-folder.yml
+cmk_hosts_to_remove:
+  CORP1-DECOMMISSIONED-HOST:
+    ip: 172.21.0.99
+    folder: Linux
+
+# used by checkmk-https-setup.yml
+checkmk_cert_file: /etc/ssl/certs/cmk-cert.pem
+checkmk_key_file: /etc/ssl/certs/cmk-cert.key
+checkmk_server_domain: cmk.corp1.local
+checkmk_server_ip: 172.21.0.13
+checkmk_httpd_ssl_config_file: /etc/httpd/conf.d/checkmk_https_enforce.conf
+
+# used by checkmk-client-install-built-in-plugin.yml
+cmk_built_in_plugin_name: apache_status.py
+
+# used by checkmk-csv-check.yml
+file_check_remote_dir: /usr/lib/check_mk_agent/local
+file_check_scripts:
+  - iLO_health_state.sh
+  - iLO_hw_health_state.sh
+
+# used by checkmk-custom-check-push.yml
+local_check_remote_dir: /usr/lib/check_mk_agent/local
+local_check_scripts:
+  - top_procs_by_cpu
+  - top_procs_by_mem
+  - top_procs_by_read
+  - top_procs_by_swap
+  - top_procs_by_write
+
+# used by checkmk-custom-check-deploy.yml
+cmk_ilo_svc_user: svc_ilo
+cmk_vcenter_web_name: CORP1-vCenter
+ilo_servers:
+  - 172.21.0.90
+  - 172.21.0.91
+  - 172.21.0.92
+
+# used by checkmk-ad-integration.yml
+cmk_ldap_sync_interval: 3600
+cmk_ldap_domains:
+  - id: DEV-DC
+    description: "DEV Domain Controller"
+    server: dc01.corp1.local
+    failover_servers:
+      - dc02.corp1.local
+    port: 3268
+    user_dn: "ou=Users,dc=corp1,dc=local"
+    group_dn: "ou=Groups,dc=corp1,dc=local"
+    bind_user: svc_automation
+    admin_groups:
+      - "cn=checkmk-admin,ou=Groups,dc=corp1,dc=local"
+    guest_groups:
+      - "cn=checkmk-operator,ou=Groups,dc=corp1,dc=local"

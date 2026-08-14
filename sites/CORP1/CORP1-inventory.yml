@@ -13,7 +13,7 @@ CORP1:
     CORP1_CMK:
       hosts:
         172.21.0.13:
-    CORP03_NFS:
+    CORP1_NFS:
       hosts:
         172.21.0.14:
     CORP1_ANS_MGR_1:

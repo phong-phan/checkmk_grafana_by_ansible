@@ -1,0 +1,14 @@
+---
+# task file to validate required vault keys
+- name: Validating required variables
+  ansible.builtin.assert:
+    that:
+      - vars[item] is defined
+      - vars[item] is not none
+      - vars[item] | string | length > 0 # number does not have length, so convert to string first
+    fail_msg: >-
+      Required variable '{{ item }}' is not set
+      (undefined, null, or empty). Please check the vault file.
+    success_msg: >-
+      Required variable '{{ item }}' is set
+  loop: "{{ required_vars }}"
