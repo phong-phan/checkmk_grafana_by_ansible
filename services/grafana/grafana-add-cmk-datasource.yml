@@ -1,0 +1,79 @@
+---
+- name: Configuring Grafana CheckMK datasource via API key
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
+  tasks:
+    - name: Validating required vault variables
+      ansible.builtin.include_tasks: ../../commons/validate-vault-keys.yml
+      vars:
+        required_vars:
+          - grafana_api_key
+          - cmk_automation_user_secret
+    - name: Checking existing datasources in Grafana
+      ansible.builtin.uri:
+        url: "{{ grafana_url }}/api/datasources"
+        method: GET
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Bearer {{ grafana_api_key }}"
+        status_code: 200
+        return_content: true
+        validate_certs: "{{ grafana_cert_validate | default(false) }}"
+      register: ds_facts_response
+    - name: Showing existing datasource information
+      ansible.builtin.debug:
+        msg: "Datasource '{{ grafana_datasource_name }}' already exists. Skipping creation"
+      when: ds_facts_response.json | selectattr('name', 'equalto', grafana_datasource_name) | list | length > 0
+    - name: Creating CheckMK datasource in Grafana
+      block:
+        - name: Creating CheckMK datasource
+          ansible.builtin.uri:
+            url: "{{ grafana_url }}/api/datasources"
+            method: POST
+            headers:
+              Content-Type: "application/json"
+              Authorization: "Bearer {{ grafana_api_key }}"
+            body_format: json
+            body:
+              name: "{{ grafana_datasource_name }}"
+              type: "{{ grafana_datasource_type }}"
+              access: "proxy"
+              url: ""
+              user: ""
+              database: ""
+              basicAuth: false
+              basicAuthUser: ""
+              withCredentials: false
+              isDefault: false
+              jsonData:
+                url: "{{ cmk_url }}"
+                edition: "RAW"
+                username: "{{ cmk_automation_user }}"
+              secureJsonFields: {}
+              secureJsonData:
+                secret: "{{ cmk_automation_user_secret }}"
+              version: 1
+              readOnly: false
+              accessControl:
+                alert.instances.external:read: true
+                alert.instances.external:write: true
+                alert.notifications.external:read: true
+                alert.notifications.external:write: true
+                alert.rules.external:read: true
+                alert.rules.external:write: true
+                datasources.id:read: true
+                datasources:delete: true
+                datasources:query: true
+                datasources:read: true
+                datasources:write: true
+              apiVersion: ""
+            status_code: [200, 202]
+            validate_certs: "{{ grafana_cert_validate | default(false) }}"
+          changed_when: true
+          register: ds_create_response
+        - name: Showing Grafana API response
+          ansible.builtin.debug:
+            var: ds_create_response.json
+      when: ds_facts_response.json | selectattr('name', 'equalto', grafana_datasource_name) | list | length == 0

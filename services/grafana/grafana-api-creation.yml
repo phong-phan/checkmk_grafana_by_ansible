@@ -3,52 +3,82 @@
   hosts: all
   vars_files:
     - /home/ansible/variables/vars_file.yml
-    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
   tasks:
-    - name: Creating Grafana service account
+    - name: Validating required vault variables
+      ansible.builtin.include_tasks: ../../commons/validate-vault-keys.yml
+      vars:
+        required_vars:
+          - grafana_secret
+    - name: Gathering service account facts
       ansible.builtin.uri:
-        url: "{{ grafana_url }}/api/serviceaccounts"
-        method: POST
+        url: "{{ grafana_url }}/api/serviceaccounts/search?query={{ grafana_service_account_name | urlencode }}"
+        method: GET
         url_username: "{{ grafana_user }}"
         url_password: "{{ grafana_secret }}"
         force_basic_auth: true
         headers:
           Content-Type: "application/json"
-        body_format: json
-        body:
-          name: "{{ grafana_service_account_name }}"
-          role: "{{ grafana_service_account_role }}"
-        status_code: [201, 409]  # 409 = already exists
-        return_content: true
-      register: sa_response
-    - name: Extracting service account ID
-      ansible.builtin.set_fact:
-        service_account_id: "{{ (sa_response.json.id if sa_response.json.id is defined else sa_response.json.message | regex_search('\\d+')) | int }}"
-    - name: Showing extracted service account ID
-      ansible.builtin.debug:
-        var: service_account_id
-    - name: Creating API key for the service account
-      ansible.builtin.uri:
-        url: "{{ grafana_url }}/api/serviceaccounts/{{ service_account_id }}/tokens"
-        method: POST
-        url_username: "{{ grafana_user }}"
-        url_password: "{{ grafana_secret }}"
-        force_basic_auth: true
-        headers:
-          Content-Type: "application/json"
-        body_format: json
-        body:
-          name: "{{ grafana_token_name }}"
-          role: "{{ grafana_api_key_role }}"
         status_code: 200
         return_content: true
-      register: api_key_response
-    - name: Appending Grafana API key to vault file
-      ansible.builtin.lineinfile:
-        path: "{{ vault_file }}"
-        line: "grafana_api_key: {{ api_key_response.json.key }}"
-        insertafter: EOF
-      delegate_to: localhost
-    - name: Showing API token
+        validate_certs: "{{ grafana_cert_validate | default(false) }}"
+      register: sa_facts_response
+    - name: Showing service account existence check result
       ansible.builtin.debug:
-        msg: "API token: {{ api_key_response.json.key }}"
+        msg: "Service account '{{ grafana_service_account_name }}' already exists. Skipping creation and API key generation"
+      when: sa_facts_response.json.totalCount > 0
+    - name: Creating Grafana service account
+      block:
+        - name: Creating Grafana service account
+          ansible.builtin.uri:
+            url: "{{ grafana_url }}/api/serviceaccounts"
+            method: POST
+            url_username: "{{ grafana_user }}"
+            url_password: "{{ grafana_secret }}"
+            force_basic_auth: true
+            headers:
+              Content-Type: "application/json"
+            body_format: json
+            body:
+              name: "{{ grafana_service_account_name }}"
+              role: "{{ grafana_service_account_role }}"
+            status_code: [201, 409]  # 409 = already exists
+            return_content: true
+            validate_certs: "{{ grafana_cert_validate | default(false) }}"
+          register: sa_response
+          changed_when: true
+        - name: Extracting service account ID
+          ansible.builtin.set_fact:
+            service_account_id: "{{ (sa_response.json.id if sa_response.json.id is defined else sa_response.json.message | regex_search('\\d+')) | int }}"
+        - name: Showing extracted service account ID
+          ansible.builtin.debug:
+            var: service_account_id
+        - name: Creating API key for the service account
+          ansible.builtin.uri:
+            url: "{{ grafana_url }}/api/serviceaccounts/{{ service_account_id }}/tokens"
+            method: POST
+            url_username: "{{ grafana_user }}"
+            url_password: "{{ grafana_secret }}"
+            force_basic_auth: true
+            headers:
+              Content-Type: "application/json"
+            body_format: json
+            body:
+              name: "{{ grafana_token_name }}"
+              role: "{{ grafana_api_key_role }}"
+            status_code: 200
+            return_content: true
+            validate_certs: "{{ grafana_cert_validate | default(false) }}"
+          register: api_key_response
+          changed_when: true
+        - name: Appending Grafana API key to vault file
+          ansible.builtin.lineinfile:
+            path: "{{ vault_file }}"
+            line: "grafana_api_key: {{ api_key_response.json.key }}"
+            regexp: "^grafana_api_key:"
+            state: present
+          delegate_to: localhost
+        - name: Showing API token
+          ansible.builtin.debug:
+            msg: "API token: {{ api_key_response.json.key }}"
+      when: sa_facts_response.json.totalCount == 0

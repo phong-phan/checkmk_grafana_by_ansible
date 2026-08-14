@@ -1,0 +1,49 @@
+---
+- name: Integrating Grafana with Active Directory
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
+  vars:
+    grafana_ldap_config_file_template: j2-template/ldap.toml.j2
+    grafana_ldap_config_file: /etc/grafana/ldap.toml
+    grafana_ldap_bind_password: "{{ sssd_ad_admin_password }}"
+  tasks:
+    - name: Validating required vault variables
+      ansible.builtin.include_tasks: ../../commons/validate-vault-keys.yml
+      vars:
+        required_vars:
+          - sssd_ad_admin_password
+    - name: Copying LDAP configuration template
+      ansible.builtin.template:
+        src: "{{ grafana_ldap_config_file_template }}"
+        dest: "{{ grafana_ldap_config_file }}"
+        backup: true
+      notify: restart_grafana_service
+    - name: Enabling LDAP authentication in Grafana configuration
+      community.general.ini_file:
+        path: "{{ grafana_config_file }}"
+        section: auth.ldap
+        option: enabled
+        value: "true"
+        backup: true
+      notify: restart_grafana_service
+    - name: Setting LDAP configuration file path in Grafana configuration
+      community.general.ini_file:
+        path: "{{ grafana_config_file }}"
+        section: auth.ldap
+        option: config_file
+        value: "{{ grafana_ldap_config_file }}"
+      notify: restart_grafana_service
+    - name: Allowing sign up for LDAP users in Grafana configuration
+      community.general.ini_file:
+        path: "{{ grafana_config_file }}"
+        section: auth.ldap
+        option: allow_sign_up
+        value: "true"
+      notify: restart_grafana_service
+  handlers:
+    - name: restart_grafana_service
+      ansible.builtin.systemd_service:
+        name: grafana-server.service
+        state: restarted

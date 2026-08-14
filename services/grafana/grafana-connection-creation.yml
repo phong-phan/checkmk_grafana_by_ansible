@@ -3,7 +3,7 @@
   hosts: all
   vars_files:
     - /home/ansible/variables/vars_file.yml
-    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
   tasks:
     - name: Creating Checkmk datasource
       ansible.builtin.uri:

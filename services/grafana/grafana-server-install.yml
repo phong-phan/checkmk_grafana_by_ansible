@@ -3,16 +3,22 @@
   hosts: all
   vars_files:
     - /home/ansible/variables/vars_file.yml
-    - ../../envs/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
   tasks:
-    - name: Removing existing Grafana packages
+    - name: Validating required vault variables
+      ansible.builtin.include_tasks: ../../commons/validate-vault-keys.yml
+      vars:
+        required_vars:
+          - grafana_secret
+          - grafana_viewer_secret
+    - name: Removing existing Grafana packages to avoid conflicts with OS-provided package
       ansible.builtin.dnf:
         name:
           - grafana-pcp
           - grafana
           - grafana-selinux
         state: absent
-    - name: Importing Grafa GPG key
+    - name: Importing Grafana GPG key
       ansible.builtin.rpm_key:
         state: present
         key: "{{ grafana_gpg_key }}"
@@ -23,39 +29,136 @@
           - unzip
         state: present
         update_cache: true
+    - name: Downloading Grafana package
+      ansible.builtin.get_url:
+        url: "{{ grafana_server_package_url }}"
+        dest: "/tmp/{{ grafana_server_package_url | basename }}"
+        validate_certs: false
     - name: Installing Grafana
       ansible.builtin.dnf:
-        name: "{{ grafana_server_package_url }}"
-        sslverify: false
-        validate_certs: false
+        name: "/tmp/{{ grafana_server_package_url | basename }}"
         state: present
+    - name: Enabling SSL for Grafana
+      block:
+        - name: Backing up Grafana configuration file before SSL changes
+          ansible.builtin.copy:
+            src: "{{ grafana_config_file }}"
+            dest: "{{ grafana_config_file }}.{{ ansible_date_time.iso8601 }}.bak"
+            remote_src: true
+        - name: Setting protocol to https in Grafana configuration
+          ansible.builtin.lineinfile:
+            path: "{{ grafana_config_file }}"
+            regexp: '^#?\s*protocol\s*='
+            line: 'protocol = https'
+            insertafter: '^\[server\]'
+          notify: restart_grafana_service
+        - name: Setting https certificate file in Grafana configuration
+          ansible.builtin.lineinfile:
+            path: "{{ grafana_config_file }}"
+            regexp: '^#?\s*cert_file\s*='
+            line: "cert_file = {{ grafana_ssl_cert_file }}"
+            insertafter: '^\[server\]'
+          notify: restart_grafana_service
+        - name: Setting https key file in Grafana configuration
+          ansible.builtin.lineinfile:
+            path: "{{ grafana_config_file }}"
+            regexp: '^#?\s*cert_key\s*='
+            line: "cert_key = {{ grafana_ssl_key_file }}"
+            insertafter: '^\[server\]'
+          notify: restart_grafana_service
+        - name: Setting https port in Grafana configuration
+          ansible.builtin.lineinfile:
+            path: "{{ grafana_config_file }}"
+            regexp: '^#?\s*http_port\s*='
+            line: "http_port = {{ grafana_port }}"
+            insertafter: '^\[server\]'
+          notify: restart_grafana_service
+        - name: Allowing firewalld port for Grafana
+          ansible.posix.firewalld:
+            port: "{{ grafana_port }}/tcp"
+            state: enabled
+            immediate: true
+            permanent: true
+      when: grafana_ssl_enable | bool
     - name: Starting and enabling Grafana service
       ansible.builtin.systemd_service:
         name: grafana-server.service
         state: started
         enabled: true
     - name: Changing password for Grafana admin user
-      ansible.builtin.command:
-        cmd: grafana-cli admin reset-admin-password {{ grafana_secret }}
+      ansible.builtin.shell: |
+        grafana-cli admin reset-admin-password {{ grafana_secret }}
       register: grafana_admin_pass_result
       changed_when: "'admin password changed' in grafana_admin_pass_result.stdout"
-    - name: Installing plugins for Grafana
-      ansible.builtin.command:
-        cmd: grafana-cli plugins install {{ item }}
-      loop:
-        - checkmk-cloud-datasource
-        - yesoreyeram-infinity-datasource
+    - name: Parsing plugin details into a structured list
+      ansible.builtin.set_fact:
+        parsed_plugins: "{{ parsed_string | from_yaml }}"
+      vars:
+        parsed_string: >-
+          {% set plugins = [] %}
+          {% for url in grafana_plugins %}
+            {% set filename = url | basename %}
+            {% set name = filename | regex_replace('-(?:[0-9]+\.){2}[0-9]+.*\.zip$', '') %}
+            {% set _ = plugins.append({'url': url, 'name': name, 'filename': filename}) %}
+          {% endfor %}
+          {{ plugins }}
+    - name: Installing plugins from the internet
+      block:
+        - name: Installing plugin
+          ansible.builtin.shell: |
+            grafana-cli plugins install {{ item }}
+          loop: "{{ parsed_plugins | map(attribute='name') | list }}"
+          register: grafana_plugins_install_result
+        - name: Showing plugin installation results
+          ansible.builtin.debug:
+            msg: "{{ grafana_plugins_install_result.results | map(attribute='stdout_lines') | list }}"
+      when: not (grafana_plugins_local_install | bool)
+    - name: Installing plugins from a local repo server
+      block:
+        - name: Downloading plugins
+          ansible.builtin.get_url:
+            url: "{{ item }}"
+            dest: "/tmp/{{ item | basename }}"
+          loop: "{{ grafana_plugins }}"
+        - name: Creating plugin directory for each plugin
+          ansible.builtin.file:
+            path: "{{ grafana_plugins_dir }}/{{ item.name }}"
+            state: directory
+            owner: grafana
+            group: grafana
+            mode: 0755
+          loop: "{{ parsed_plugins }}"
+        - name: Unzipping plugin files to the Grafana plugins directory
+          ansible.builtin.unarchive:
+            src: "/tmp/{{ item.filename }}"
+            dest: "{{ grafana_plugins_dir }}/{{ item.name }}"
+            remote_src: true
+          loop: "{{ parsed_plugins }}"
+      when: grafana_plugins_local_install | bool
+    - name: Restarting Grafana
+      ansible.builtin.systemd_service:
+        name: grafana-server.service
+        state: restarted
     - name: Allowing port for Grafana in firewalld
       ansible.posix.firewalld:
         port: 3000/tcp
         state: enabled
         immediate: true
         permanent: true
-    - name: Restart Grafana Server
-      ansible.builtin.systemd_service:
-        name: grafana-server.service
-        state: restarted
-    - name: Create Grafana Viewer user
+    - name: Gathering Grafana viewer user existence information
+      ansible.builtin.uri:
+        url: "{{ grafana_url }}/api/users/lookup?loginOrEmail={{ grafana_viewer_user }}"
+        method: GET
+        url_username: "{{ grafana_user }}"
+        url_password: "{{ grafana_secret }}"
+        force_basic_auth: true
+        headers:
+          Content-Type: "application/json"
+        status_code: [200, 404]
+        return_content: true
+        validate_certs: "{{ grafana_cert_validate | default(false) }}"
+      register: viewer_user_response
+    - name: Creating Grafana viewer user
       ansible.builtin.uri:
         url: "{{ grafana_url }}/api/admin/users"
         method: POST
@@ -72,3 +175,12 @@
           role: "Viewer"
         status_code: [200, 409]
         return_content: true
+        validate_certs: "{{ grafana_cert_validate | default(false) }}"
+      register: viewer_user_creation_response
+      changed_when: true
+      when: viewer_user_response.status == 404
+  handlers:
+    - name: restart_grafana_service
+      ansible.builtin.systemd_service:
+        name: grafana-server.service
+        state: restarted

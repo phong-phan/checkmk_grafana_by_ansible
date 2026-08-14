@@ -2,47 +2,49 @@
 
 ## A project to automate the deployment of Grafana and other actions related to dashboards
 
-- Install latest Grafana server on Alma Linux 9.4 (Seafoam Ocelet), current version is 11.6.0
-- Install Grafana server
-- Creating service account and API for Ansible to talk with Granfana
-- Install CheckMK opensource plugin
-- Connecting with CheckMK
-- Import dashboards from another Grafana Server
+- Install latest Grafana server on AlmaLinux (RHEL-based), with optional HTTPS enforcement.
+- Create a service account and API key for Ansible/automation to talk to Grafana.
+- Install the CheckMK datasource plugin (and other plugins), from the internet or a local repo.
+- Connect Grafana to CheckMK, either via basic auth or via the generated API key.
+- Export/import dashboards between Grafana servers.
+- Optional: LDAP/AD integration.
 
-Install Grafana module for ansible:
+Install the Grafana collection for Ansible:
 
 ```bash
     ansible-galaxy collection install community.grafana
 ```
 
-Information  need to bee added to Vault file /home/ansible/variables/vars_file.yml
-    - customer_name:
-    - site:
-    - grafana_user: 
-    - grafana_secret: 
-    - grafana_api_key (This will be automatically added after running API gen playbook)
+## Setup
+
+Credentials are stored outside this repository on the Ansible control node, at:
+```
+/home/ansible/variables/vars_file.yml
+```
+See `sample_vars_files.yml` at the repo root for the full list of required keys (`grafana_user`,
+`grafana_secret`, `grafana_viewer_user`, `grafana_viewer_secret`, `cmk_automation_user_secret`, ...).
+`grafana_api_key` is written back into this same file automatically after running `grafana-api-creation.yml`.
+Every playbook validates its required secrets via `commons/validate-vault-keys.yml` before doing anything else.
+
+Non-secret, per-site configuration lives in:
+```
+sites/{{ customer_name }}/CM/{{ site }}/playbooks/GFN/site_vars.yml
+```
 
 ## Structure:
 
 ```bash
-├── ansible_api_key.txt					                            # API key file
-├── dashboards                                                      # Storing all JSON dashboard files 
-│   ├── DTA-QA.json
-│   ├── DTA-QA-Procs.json
-│   ├── DTA-QA-SVCs.json
-│   ├── DTA-STG.json
-│   ├── DTA-STG-Procs.json
-│   ├── DTA-STG-SVCs.json
-│   └── grafana-dashboard-hostname-uid-update.yml                   # Run on localhost, Update information (uid, server name, site name) before importing to new Grafana server.
-├── datasource_uid.txt					                            # UID of current CheckMK datasource
-├── grafana-api-creation.yml                                        # Create Service account and API
-├── grafana-connection-creation.yml		                            # Create new connection from CheckMK Datasource with authentication info from CheckMK
-├── grafana-dashboard-export.yml		                            # Export all dashboards from another Grafana server to use for importing
-├── grafana-dashboard-import.yml		                            # Import all dashboards from another Grafana server to use for importing
-├── grafana-dashboard-name-uid-get.yml	                            # Get all dashboards Title and UID from another Grafana server to use for importing
-├── grafana-dashboard-name-update.yml	                            # Update name of servers, site before importing dashboards
-├── grafana-datasource-uid-get.yml                                  # Get UID of CheckMK datasource (tribe-29-checkmk-datasource)
-├── grafana-server-install.yml                                      # Install Grafana Server
+├── dashboards                                   # Storing all JSON dashboard files
+├── grafana-server-install.yml                   # Install Grafana Server (SSL, plugins, viewer user)
+├── grafana-api-creation.yml                     # Create service account and API key
+├── grafana-add-cmk-datasource.yml               # Create the CheckMK datasource using the Grafana API key
+├── grafana-connection-creation.yml              # Create the CheckMK datasource using basic auth
+├── grafana-ad-integration.yml                   # Configure LDAP/AD authentication in Grafana
+├── grafana-dashboard-export.yml                 # Export all dashboards from another Grafana server
+├── grafana-dashboard-import.yml                 # Import dashboards exported above into this Grafana server
+├── grafana-dashboard-name-uid-get.yml           # Get all dashboards' Title and UID from another Grafana server
+├── grafana-datasource-uid-get.yml               # Get UID of the CheckMK datasource
+├── j2-template/                                 # Jinja2 templates used by the optional playbooks above
 ├── README.md
 
 ```
@@ -52,6 +54,6 @@ Information  need to bee added to Vault file /home/ansible/variables/vars_file.y
 ansible-playbook grafana-server-install.yml
 ```
 
-## Flow to import dashboard:
+## Flow to import dashboards:
 
-Install Grafana Server -> Export dashboards from another Grafana (assuming dashboards can be re-use) -> Change all the information needed  (UID, site name, server name) -> Ansible service account creation and API gen -> Add a new connection to CheckMK server using "tribe-29-checkmk-datasource" plugin ->  Import edited dashboards into Grafana.
+Install Grafana Server -> Export dashboards from another Grafana (assuming dashboards can be re-used) -> Change all the information needed (UID, site name, server name) -> Ansible service account creation and API key generation -> Add the CheckMK datasource -> Import edited dashboards into Grafana.
