@@ -26,9 +26,14 @@ cmk_folders:
   - 'Connection-Monitoring'
 
 cmk_monitored_hosts:
+  # cmk_custom_label is optional
+  # each list item is a single label key/value pair
   CORP1-ANS:
     ip: 172.21.0.10
     folder: Linux
+    cmk_custom_label:
+      - os_family: linux
+      - app_role: ansible-controller
   CORP1-REPO:
     ip: 172.21.0.11
     folder: Linux

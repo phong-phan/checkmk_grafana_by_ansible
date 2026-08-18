@@ -17,8 +17,14 @@
         automation_user: "{{ cmk_user }}"
         automation_secret: "{{ cmk_secret }}"
         name: "{{ item.key }}"
-        attributes:
-          ipaddress: "{{ item.value.ip }}"
+        # Merging the list of single key/value label pairs into one labels dict
+        attributes: >-
+          {{
+            {
+              'ipaddress': item.value.ip,
+              'labels': item.value.cmk_custom_label | default([]) | combine
+            }
+          }}
         folder: "{{ item.value.folder }}"
         state: "present"
       loop: "{{ cmk_monitored_hosts | dict2items }}"
