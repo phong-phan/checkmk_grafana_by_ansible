@@ -1,0 +1,46 @@
+---
+- name: Creating CheckMK process monitoring rules
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  tasks:
+    - name: Validating required vault variables
+      ansible.builtin.include_tasks: ../../commons/validate-vault-keys.yml
+      vars:
+        required_vars:
+          - cmk_secret
+    - name: Looking up existing process monitoring rules
+      ansible.builtin.set_fact:
+        cmk_existing_process_rules: "{{ lookup('checkmk.general.rules',
+          ruleset='static_checks:ps',
+          server_url=cmk_url,
+          site=cmk_site,
+          automation_user=cmk_user,
+          automation_secret=cmk_secret) }}"
+    # Only reuse rule_id when the rule already exists; CheckMK rejects a made-up id and auto-generates one otherwise.
+    - name: Creating process monitoring rules
+      checkmk.general.rule:
+        server_url: "{{ cmk_url }}"
+        site: "{{ cmk_site }}"
+        automation_user: "{{ cmk_user }}"
+        automation_secret: "{{ cmk_secret }}"
+        ruleset: "static_checks:ps"
+        rule:
+          rule_id: "{{ (cmk_existing_process_rules
+            | selectattr('extensions.properties.description', 'equalto', item.description)
+            | map(attribute='id') | list + [None]) | first }}"
+          conditions:
+            host_name:
+              match_on: "{{ item.hosts }}"
+              operator: one_of
+          properties:
+            description: "{{ item.description }}"
+            disabled: "{{ item.disabled }}"
+          value_raw: "('ps', '{{ item.name }}', {'process': '{{ item.process }}', 'cpu_rescale_max': {{ item.cpu_rescale_max }}})"
+          location:
+            folder: "/"
+        state: present
+      loop: "{{ cmk_process_checks }}"
+      loop_control:
+        label: "{{ item.name }}"

@@ -121,3 +121,59 @@ cmk_ldap_domains:
       - "cn=checkmk-admin,ou=Groups,dc=corp2,dc=local"
     guest_groups:
       - "cn=checkmk-operator,ou=Groups,dc=corp2,dc=local"
+
+# used by checkmk-process-monitor.yml
+# 'description' is the unique identity for each rule
+cmk_process_checks:
+  - name: 'nfsd'
+    process: '~[nfsd]'
+    cpu_rescale_max: true
+    description: 'nfs-server'
+    disabled: false
+    hosts:
+      - 'CORP2-NFS'
+  - name: 'httpd'
+    process: '/usr/sbin/httpd'
+    cpu_rescale_max: true
+    description: '/usr/sbin/httpd'
+    disabled: false
+    hosts:
+      - 'CORP2-REPO'
+  - name: 'nginx'
+    process: '~nginx: worker process'
+    cpu_rescale_max: true
+    description: 'nginx'
+    disabled: false
+    hosts:
+      - 'CORP2-WEB01'
+  - name: 'sqlservr'
+    process: '/opt/mssql/bin/sqlservr'
+    cpu_rescale_max: true
+    description: 'mssql'
+    disabled: false
+    hosts:
+      - 'CORP2-DB01'
+
+# used by checkmk-systemd-service-rule.yml
+# 'description' is the unique identity for each rule
+cmk_systemd_checks:
+  - unit: 'nfs-server'
+    description: 'nfs-server'
+    disabled: false
+    hosts:
+      - 'CORP2-NFS'
+  - unit: 'httpd'
+    description: 'httpd'
+    disabled: false
+    hosts:
+      - 'CORP2-REPO'
+  - unit: 'nginx'
+    description: 'nginx'
+    disabled: false
+    hosts:
+      - 'CORP2-WEB01'
+  - unit: 'mssql-server'
+    description: 'mssql-server'
+    disabled: false
+    hosts:
+      - 'CORP2-DB01'

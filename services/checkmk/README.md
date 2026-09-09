@@ -6,7 +6,7 @@
 - Install the Agent on target servers and register them with the CheckMK server.
 - Create the automation user consumed by Grafana's datasource plugin and a read-only operator account.
 - Create folders, add target nodes to folders, run service discovery, activate changes.
-- Optional: HTTPS enforcement, custom/built-in agent plugins, custom check scripts (e.g. iLO health via Redfish, VMware snapshot summary), and LDAP/AD integration.
+- Optional: HTTPS enforcement, custom/built-in agent plugins, custom check scripts (e.g. iLO health via Redfish, VMware snapshot summary), LDAP/AD integration, and process/systemd service monitoring rules.
 
 ## Dependencies
 
@@ -49,6 +49,8 @@ sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
 ├── checkmk-client-install-custom-plugin.yml    # Push a custom agent plugin (client-plugins/) to a client
 ├── checkmk-custom-check-deploy.yml             # Deploy templated custom checks (iLO health, vCenter snapshots, csv export)
 ├── checkmk-ad-integration.yml                  # Configure LDAP/AD user connections in CheckMK
+├── checkmk-process-monitor.yml                 # Create/update process (ps) monitoring rules from cmk_process_checks
+├── checkmk-systemd-service-rule.yml            # Create/update systemd service monitoring rules from cmk_systemd_checks
 ├── checkmk-csv-check.yml                       # Simple push of static .csv check scripts from filecheck/
 ├── checkmk-custom-check-push.yml               # Simple push of static local-check scripts from localcheck/
 ├── server-plugins/                             # Example server-side check plugins (checkmk-install-custom-plugins.yml)
@@ -67,3 +69,11 @@ sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
 cd sites/CORP1/CM/DEV
 bash DEV-MONITORING.sh
 ```
+
+## Process / systemd service monitoring rules
+
+Instead of clicking through the CheckMK UI, define the rules as data in `site_vars.yml` and let
+`checkmk-process-monitor.yml` / `checkmk-systemd-service-rule.yml` create or update them via the API.
+Each entry's `description` is treated as the rule's unique identity, so re-running the playbook updates
+the existing rule instead of creating a duplicate. See `cmk_process_checks` / `cmk_systemd_checks` in
+`site_vars.yml` for the expected shape.

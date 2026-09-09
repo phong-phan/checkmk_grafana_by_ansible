@@ -32,4 +32,6 @@
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-custom-check-deploy.yml
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-ad-integration.yml
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-remove-host-from-folder.yml
+# - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-process-monitor.yml
+# - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-systemd-service-rule.yml
 # - ansible.builtin.import_playbook: ../../../../../services/grafana/grafana-ad-integration.yml
