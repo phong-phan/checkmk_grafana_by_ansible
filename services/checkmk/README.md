@@ -6,7 +6,7 @@
 - Install the Agent on target servers and register them with the CheckMK server.
 - Create the automation user consumed by Grafana's datasource plugin and a read-only operator account.
 - Create folders, add target nodes to folders, run service discovery, activate changes.
-- Optional: HTTPS enforcement, custom/built-in agent plugins, custom check scripts (e.g. iLO health via Redfish, VMware snapshot summary), LDAP/AD integration, and process/systemd service monitoring rules.
+- Optional: HTTPS enforcement, Telegram notifications, custom/built-in agent plugins, custom check scripts (e.g. iLO health via Redfish, VMware snapshot summary), LDAP/AD integration, and process/systemd service monitoring rules.
 
 ## Dependencies
 
@@ -46,6 +46,7 @@ sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
 ├── checkmk-install-custom-plugins.yml          # Import custom check plugins (server-plugins/) into the CheckMK site
 ├── checkmk-remove-host-from-folder.yml         # Remove a host from CheckMK
 ├── checkmk-https-setup.yml                     # Enforce HTTPS on the CheckMK server via httpd
+├── checkmk-telegram-notification-deploy.yml    # Deploy the Telegram notification script (optional HTTP proxy) to the CheckMK site
 ├── checkmk-client-install-built-in-plugin.yml  # Download a built-in agent plugin from the CheckMK server to a client
 ├── checkmk-client-install-custom-plugin.yml    # Push a custom agent plugin (client-plugins/) to a client
 ├── checkmk-custom-check-deploy.yml             # Deploy templated custom checks (iLO health, vCenter snapshots, csv export)
