@@ -1,0 +1,31 @@
+---
+- name: Deploying Telegram notification script to CheckMK server
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  vars:
+    cmk_telegram_remote_dir: "/omd/sites/{{ cmk_site }}/local/share/check_mk/notifications"
+  tasks:
+    - name: Ensuring notification script directory exists
+      ansible.builtin.file:
+        path: "{{ cmk_telegram_remote_dir }}"
+        state: directory
+        owner: "{{ cmk_site }}"
+        group: "{{ cmk_site }}"
+        mode: 0755
+    - name: Uploading Telegram notification script
+      ansible.builtin.template:
+        src: j2-template/checkmk-telegram-notification.sh.j2
+        dest: "{{ cmk_telegram_remote_dir }}/telegram.sh"
+        owner: "{{ cmk_site }}"
+        group: "{{ cmk_site }}"
+        mode: 0710
+        trim_blocks: true
+        lstrip_blocks: true
+        backup: true
+      notify: restart_omd_service
+  handlers:
+    - name: restart_omd_service
+      ansible.builtin.shell: |
+        omd restart {{ cmk_site }}
