@@ -28,6 +28,7 @@
 ## ______________________________
 ## Server (optional, run individually as needed):
 ## ______________________________
+# - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-update.yml
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-https-setup.yml
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-custom-check-deploy.yml
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-ad-integration.yml

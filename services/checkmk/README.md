@@ -42,6 +42,7 @@ sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
 ├── 5-checkmk-site-activation.yml               # Activate the changes on the CheckMK site
 ├── checkmk-add-host-to-monitor.yml             # Convenience wrapper chaining 1-5
 ├── checkmk-install.yml                         # Install CheckMK itself (server-side) and create service users
+├── checkmk-update.yml                          # Update CheckMK server version (backup, verify, auto rollback on failure)
 ├── checkmk-install-custom-plugins.yml          # Import custom check plugins (server-plugins/) into the CheckMK site
 ├── checkmk-remove-host-from-folder.yml         # Remove a host from CheckMK
 ├── checkmk-https-setup.yml                     # Enforce HTTPS on the CheckMK server via httpd
@@ -77,3 +78,21 @@ Instead of clicking through the CheckMK UI, define the rules as data in `site_va
 Each entry's `description` is treated as the rule's unique identity, so re-running the playbook updates
 the existing rule instead of creating a duplicate. See `cmk_process_checks` / `cmk_systemd_checks` in
 `site_vars.yml` for the expected shape.
+
+## Updating the CheckMK server version
+
+`checkmk-update.yml` updates an existing CheckMK site in place:
+
+1. Change `cmk_server_package_url` in `site_vars.yml` to the new release, e.g.
+   `https://download.checkmk.com/checkmk/2.4.0p20/check-mk-raw-2.4.0p20-el9-38.x86_64.rpm`
+   (also bump `cmk_agent_version` and the agent package URLs to keep the agents in line).
+2. Run the playbook against the CheckMK server. It:
+   - reads the current site version and the target version from the RPM, and does nothing if they match;
+   - refuses downgrades and skipping a major release (e.g. 2.3 -> 2.5 must go through 2.4);
+   - stops the site and takes a full `omd backup` (config, RRD metrics, history) into `cmk_backup_dir`;
+   - installs the new package and runs `omd update` **only after** the backup archive is verified;
+   - checks that the site runs the target version and prints `omd version` / `omd status`.
+3. If the update fails, the site is restored from the backup automatically and started on the old version.
+
+The old version stays installed (needed for rollback) and backups are not pruned; clean them up with
+`omd cleanup` and by removing old archives in `cmk_backup_dir` once the new version is confirmed.

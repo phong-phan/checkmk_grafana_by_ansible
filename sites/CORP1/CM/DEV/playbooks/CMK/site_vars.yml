@@ -84,6 +84,12 @@ checkmk_server_domain: cmk.corp1.local
 checkmk_server_ip: 172.21.0.13
 checkmk_httpd_ssl_config_file: /etc/httpd/conf.d/checkmk_https_enforce.conf
 
+# used by checkmk-update.yml
+# to update, point cmk_server_package_url (above) at the new release and run checkmk-update.yml
+cmk_backup_dir: /var/backup/checkmk
+# keep: keep site customizations | install: take new version files | abort: stop update on conflict
+cmk_update_conflict_policy: install
+
 # used by checkmk-client-install-built-in-plugin.yml
 cmk_built_in_plugin_name: apache_status.py
 

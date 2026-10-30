@@ -1,0 +1,167 @@
+---
+- name: Updating CheckMK server version
+  hosts: all
+  vars_files:
+    - /home/ansible/variables/vars_file.yml
+    - ../../sites/{{ customer_name }}/CM/{{ site }}/playbooks/CMK/site_vars.yml
+  vars:
+    cmk_server_package_file: "/tmp/{{ cmk_server_package_url | basename }}"
+    cmk_site_dir: "/omd/sites/{{ cmk_site }}"
+  tasks:
+    - name: Checking if CheckMK site exists
+      ansible.builtin.stat:
+        path: "{{ cmk_site_dir }}"
+      register: cmk_site_stat
+    - name: Stopping when CheckMK site does not exist
+      ansible.builtin.assert:
+        that:
+          - cmk_site_stat.stat.exists
+        fail_msg: "CheckMK site {{ cmk_site }} not found at {{ cmk_site_dir }}, run checkmk-install.yml first"
+    - name: Getting current CheckMK site version
+      ansible.builtin.shell: |
+        omd version -b {{ cmk_site }}
+      register: cmk_current_version_raw
+      changed_when: false
+    - name: Importing CheckMK GPG key
+      ansible.builtin.rpm_key:
+        state: present
+        key: "{{ cmk_public_key }}"
+        validate_certs: false
+    - name: Downloading new CheckMK RPM package to /tmp
+      ansible.builtin.get_url:
+        url: "{{ cmk_server_package_url }}"
+        dest: "{{ cmk_server_package_file }}"
+        mode: "0644"
+        validate_certs: false
+    - name: Getting target CheckMK version from RPM package
+      ansible.builtin.shell: |
+        set -o pipefail
+        rpm -qlp {{ cmk_server_package_file }} | grep -oE '^/opt/omd/versions/[^/]+' | sort -u | head -1 | xargs basename
+      register: cmk_target_version_raw
+      changed_when: false
+    - name: Setting CheckMK version facts
+      ansible.builtin.set_fact:
+        cmk_current_version: "{{ cmk_current_version_raw.stdout | trim }}"
+        cmk_target_version: "{{ cmk_target_version_raw.stdout | trim }}"
+        cmk_backup_file: "{{ cmk_backup_dir }}/{{ cmk_site }}-{{ cmk_current_version_raw.stdout | trim }}-{{ ansible_date_time.iso8601_basic_short }}.tar.gz"
+    - name: Showing CheckMK version change plan
+      ansible.builtin.debug:
+        msg: "CheckMK site {{ cmk_site }}: {{ cmk_current_version }} -> {{ cmk_target_version }}"
+    - name: Updating CheckMK site version
+      when: cmk_current_version != cmk_target_version
+      block:
+        - name: Validating update path
+          ansible.builtin.assert:
+            that:
+              - cmk_target_version | length > 0
+              - cmk_target_ver is version(cmk_current_ver, '>')
+              - (cmk_target_ver.split('.')[0] | int) == (cmk_current_ver.split('.')[0] | int)
+              - (cmk_target_ver.split('.')[1] | int) - (cmk_current_ver.split('.')[1] | int) <= 1
+            fail_msg: >-
+              Unsupported update path {{ cmk_current_version }} -> {{ cmk_target_version }}.
+              Target must be newer and at most one major release ahead.
+          vars:
+            cmk_current_ver: "{{ cmk_current_version | regex_replace('\\.[a-z]+$', '') }}"
+            cmk_target_ver: "{{ cmk_target_version | regex_replace('\\.[a-z]+$', '') }}"
+        - name: Creating backup directory
+          ansible.builtin.file:
+            path: "{{ cmk_backup_dir }}"
+            state: directory
+            mode: "0700"
+        - name: Checking free space for backup
+          ansible.builtin.shell: |
+            set -o pipefail
+            site_size=$(du -sxb {{ cmk_site_dir }}/ | awk '{print $1}')
+            free_space=$(df --output=avail -B1 {{ cmk_backup_dir }} | tail -1)
+            echo "site=${site_size} free=${free_space}"
+            [ "${free_space}" -gt "${site_size}" ]
+          register: cmk_backup_space
+          changed_when: false
+        - name: Stopping CheckMK site
+          ansible.builtin.shell: |
+            omd stop {{ cmk_site }}
+          changed_when: true
+        - name: Backing up CheckMK site
+          ansible.builtin.shell: |
+            omd backup {{ cmk_site }} {{ cmk_backup_file }}
+          args:
+            creates: "{{ cmk_backup_file }}"
+        - name: Verifying backup archive integrity
+          ansible.builtin.shell: |
+            set -o pipefail
+            test -s {{ cmk_backup_file }}
+            # grep -c reads the whole stream; grep -q would exit early and SIGPIPE tar (rc 141)
+            tar -tzf {{ cmk_backup_file }} | grep -c '^{{ cmk_site }}/etc/'
+          changed_when: false
+        - name: Marking backup as verified
+          ansible.builtin.set_fact:
+            cmk_backup_verified: true
+        - name: Installing new CheckMK RPM package
+          ansible.builtin.dnf:
+            name: "{{ cmk_server_package_file }}"
+            state: present
+        - name: Marking update as started
+          ansible.builtin.set_fact:
+            cmk_update_started: true
+        - name: Updating CheckMK site to new version
+          ansible.builtin.shell: |
+            omd -f -V {{ cmk_target_version }} update --conflict={{ cmk_update_conflict_policy }} {{ cmk_site }}
+          changed_when: true
+          register: cmk_update_result
+          notify: restart_httpd_service
+        - name: Starting CheckMK site
+          ansible.builtin.shell: |
+            omd start {{ cmk_site }}
+          changed_when: true
+        - name: Getting updated CheckMK site version
+          ansible.builtin.shell: |
+            omd version -b {{ cmk_site }}
+          register: cmk_updated_version
+          changed_when: false
+        - name: Verifying CheckMK site runs target version
+          ansible.builtin.assert:
+            that:
+              - cmk_updated_version.stdout | trim == cmk_target_version
+            fail_msg: "CheckMK site {{ cmk_site }} reports {{ cmk_updated_version.stdout }} instead of {{ cmk_target_version }}"
+      rescue:
+        - name: Restoring CheckMK site from backup
+          ansible.builtin.shell: |
+            omd -f restore --reuse --kill {{ cmk_site }} {{ cmk_backup_file }}
+          changed_when: true
+          when:
+            - cmk_backup_verified | default(false)
+            - cmk_update_started | default(false)
+        - name: Starting CheckMK site on previous version
+          ansible.builtin.shell: |
+            omd start {{ cmk_site }}
+          changed_when: true
+          failed_when: false
+        - name: Failing after rollback
+          ansible.builtin.fail:
+            msg: >-
+              CheckMK update {{ cmk_current_version }} -> {{ cmk_target_version }} failed at task
+              '{{ ansible_failed_task.name }}'.
+              {% if cmk_update_started | default(false) %}Site restored from {{ cmk_backup_file }}.
+              {% else %}Site was not modified.{% endif %}
+    - name: Checking CheckMK site status
+      ansible.builtin.shell: |
+        omd status {{ cmk_site }}
+      register: cmk_site_status
+      changed_when: false
+      failed_when: false
+    - name: Getting CheckMK site version
+      ansible.builtin.shell: |
+        omd version {{ cmk_site }}
+      register: cmk_site_version
+      changed_when: false
+    - name: Showing CheckMK site version
+      ansible.builtin.debug:
+        msg:
+          - "{{ cmk_site_version.stdout }}"
+          - "Backup: {{ cmk_backup_file if cmk_backup_verified | default(false) else 'not created (already on target version)' }}"
+          - "{{ cmk_site_status.stdout_lines }}"
+  handlers:
+    - name: restart_httpd_service
+      ansible.builtin.systemd_service:
+        name: httpd.service
+        state: restarted
