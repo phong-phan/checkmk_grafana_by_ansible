@@ -85,6 +85,13 @@ cmk_backup_dir: /var/backup/checkmk
 # keep: keep site customizations | install: take new version files | abort: stop update on conflict
 cmk_update_conflict_policy: install
 
+# used by checkmk-telegram-notification-deploy.yml
+# bot token and chat ID are set in the CheckMK notification rule (parameters 1 and 2), not here
+# set cmk_telegram_proxy_enable to true when the CheckMK server reaches api.telegram.org via an HTTP proxy
+cmk_telegram_proxy_enable: false
+cmk_telegram_proxy_ip: 172.31.0.30
+cmk_telegram_proxy_port: 3128
+
 # used by checkmk-client-install-built-in-plugin.yml
 cmk_built_in_plugin_name: apache_status.py
 

@@ -30,6 +30,7 @@
 ## ______________________________
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-update.yml
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-https-setup.yml
+# - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-telegram-notification-deploy.yml
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-custom-check-deploy.yml
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-ad-integration.yml
 # - ansible.builtin.import_playbook: ../../../../../services/checkmk/checkmk-remove-host-from-folder.yml
